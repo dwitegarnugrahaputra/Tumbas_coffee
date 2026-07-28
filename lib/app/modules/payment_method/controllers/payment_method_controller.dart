@@ -1,40 +1,86 @@
+// Lokasi: lib/app/modules/payment_method/controllers/payment_method_controller.dart
+
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:flutter/services.dart';
+import '../../../../main.dart'; // Import global client 'supabase'
 import '../../../routes/app_pages.dart';
 
 class PaymentMethodController extends GetxController {
-  var selectedMethod = 'GoPay'.obs;
+  // State Reactive List Metode Pembayaran dari Database
+  var paymentMethods = <Map<String, dynamic>>[].obs;
+  var isLoading = false.obs;
 
-  // Bikin dinamis nomor pembayarannya berdasarkan metode yang dipilih
-  String get virtualAccount {
-    switch (selectedMethod.value) {
-      case 'BCA Virtual Account': return '3901-2345-6789';
-      case 'Mandiri Virtual Account': return '8950-8000-1234';
-      case 'BNI Virtual Account': return '8241-0022-3344';
-      case 'BRI Virtual Account': return '2273-1000-5566';
-      case 'GoPay': return '0812-3456-7890';
-      case 'OVO': return '0812-3456-7890';
-      case 'Dana': return '0812-3456-7890';
-      case 'ShopeePay': return '112-0812-3456-7890';
-      default: return '0812-3456-7890';
+  // State Metode Pembayaran Terpilih (Default/Selected)
+  var selectedPaymentMethod = <String, dynamic>{}.obs;
+
+  // Data Payload dari Checkout Page
+  var checkoutData = <String, dynamic>{}.obs;
+
+  @override
+  void onInit() {
+    super.onInit();
+
+    // Tangkap arguments data transaksi yang di-pass dari CheckoutController
+    if (Get.arguments != null && Get.arguments is Map<String, dynamic>) {
+      checkoutData.assignAll(Get.arguments as Map<String, dynamic>);
+    }
+
+    fetchPaymentMethodsFromSupabase();
+  }
+
+  // 1. FETCH METODE PEMBAYARAN DARI SUPABASE
+  Future<void> fetchPaymentMethodsFromSupabase() async {
+    try {
+      isLoading.value = true;
+
+      final List<dynamic> response = await supabase
+          .from('payment_methods')
+          .select()
+          .eq('is_active', true)
+          .order('category', ascending: true);
+
+      paymentMethods.value = List<Map<String, dynamic>>.from(response);
+
+      // Set default terpilih ke metode pertama jika ada (pakai assignAll biar bebas warning)
+      if (paymentMethods.isNotEmpty && selectedPaymentMethod.isEmpty) {
+        selectedPaymentMethod.assignAll(paymentMethods.first);
+      }
+    } catch (e) {
+      Get.snackbar(
+        'Error Pembayaran',
+        'Gagal memuat metode pembayaran: $e',
+        backgroundColor: Colors.red[700],
+        colorText: Colors.white,
+      );
+    } finally {
+      isLoading.value = false;
     }
   }
 
-  void setPaymentMethod(String method) {
-    selectedMethod.value = method;
+  // 2. PILIH METODE PEMBAYARAN
+  void selectPaymentMethod(Map<String, dynamic> method) {
+    selectedPaymentMethod.assignAll(method);
   }
 
-  void copyToClipboard() {
-    Clipboard.setData(ClipboardData(text: virtualAccount));
-    Get.snackbar(
-      'Berhasil',
-      'Nomor pembayaran ${selectedMethod.value} berhasil disalin!',
-      snackPosition: SnackPosition.TOP,
-      duration: const Duration(seconds: 2),
-    );
-  }
+  // 3. KONFIRMASI PEMBAYARAN DAN LANJUT KE PAYMENT CONFIRMATION
+  void confirmSelection() {
+    if (selectedPaymentMethod.isEmpty) {
+      Get.snackbar(
+        'Pilih Pembayaran',
+        'Silakan pilih salah satu metode pembayaran!',
+        backgroundColor: Colors.amber[800],
+        colorText: Colors.white,
+      );
+      return;
+    }
 
-  void goToConfirmation() {
-    Get.toNamed(Routes.PAYMENT_CONFIRMATION);
+    // Gabungkan data checkout dengan metode pembayaran terpilih
+    final Map<String, dynamic> finalOrderPayload = {
+      ...checkoutData,
+      'payment_method': selectedPaymentMethod,
+    };
+
+    // Lanjut ke Halaman Payment Confirmation
+    Get.toNamed(Routes.PAYMENT_CONFIRMATION, arguments: finalOrderPayload);
   }
 }

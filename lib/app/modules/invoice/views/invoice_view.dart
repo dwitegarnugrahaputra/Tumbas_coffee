@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart';
 import '../controllers/invoice_controller.dart';
 import '../../../theme/app_colors.dart';
 
@@ -10,287 +11,317 @@ class InvoiceView extends GetView<InvoiceController> {
 
   @override
   Widget build(BuildContext context) {
-    Get.put(InvoiceController());
+    final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp', decimalDigits: 0);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // 1. Header Success Icon & Teks
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.check_circle, color: Colors.green, size: 48),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Pembayaran Berhasil!',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.darkNeutral,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Pesanan kamu berhasil dibuat.',
-                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-              ),
-              const SizedBox(height: 32),
+        child: Obx(() {
+          // Tampilkan loading saat fetch data dari Supabase
+          if (controller.isLoading.value) {
+            return const Center(
+              child: CircularProgressIndicator(color: AppColors.darkAccent),
+            );
+          }
 
-              // 2. Card Setruk / Invoice (DIBUNGKUS REPAINTBOUNDARY)
-              RepaintBoundary(
-                key: controller.invoiceKey, // Key untuk penangkapan gambar
-                child: Container(
+          final order = controller.orderData;
+          final items = controller.orderItems;
+
+          // Format tanggal otomatis
+          String formattedDate = '-';
+          if (order['created_at'] != null) {
+            DateTime parsedDate = DateTime.parse(order['created_at']);
+            formattedDate = DateFormat('dd MMM yyyy, HH:mm').format(parsedDate) + ' WIB';
+          }
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // 1. Header Success Icon & Teks
+                Container(
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.04),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
+                    color: Colors.green.withOpacity(0.15),
+                    shape: BoxShape.circle,
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // --- Bagian Informasi Transaksi ---
-                      Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text('ID TRANSAKSI', style: TextStyle(fontSize: 11, color: Colors.grey[500], fontWeight: FontWeight.bold, letterSpacing: 0.5)),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: const Text(
-                                    'TMB-20231024-0092',
-                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text('Tanggal & Waktu', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                                const Text('24 Okt 2023, 14:20 WIB', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      Divider(color: Colors.grey[100], thickness: 2, height: 0),
+                  child: const Icon(Icons.check_circle, color: Colors.green, size: 48),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Pembayaran Berhasil!',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.darkNeutral,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Pesanan kamu berhasil dibuat.',
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 32),
 
-                      // --- Bagian Data Pelanggan ---
-                      Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Nama Pelanggan', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
-                                const SizedBox(height: 4),
-                                const Text('Tegar', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.darkNeutral)),
-                              ],
-                            ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text('Lokasi Pengiriman', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
-                                const SizedBox(height: 4),
-                                const Text(
-                                  '-6.2088° S, 106.8456° E',
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, fontFamily: 'monospace'),
-                                ),
-                              ],
-                            ),
-                          ],
+                // 2. Card Struk / Invoice (DIBUNGKUS REPAINTBOUNDARY)
+                RepaintBoundary(
+                  key: controller.invoiceKey,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
                         ),
-                      ),
-
-                      // Efek sobekan kertas (Dashed Divider)
-                      Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 20),
-                            child: _DashedDivider(height: 1.0, color: Colors.grey),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // --- Bagian Informasi Transaksi ---
+                        Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('ID TRANSAKSI', style: TextStyle(fontSize: 11, color: Colors.grey[500], fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      'TRX-${order['id'].toString().substring(0, 8).toUpperCase()}',
+                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('Tanggal & Waktu', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                                  Text(formattedDate, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                                ],
+                              ),
+                            ],
                           ),
-                          Row(
+                        ),
+                        Divider(color: Colors.grey[100], thickness: 2, height: 0),
+
+                        // --- Bagian Data Pelanggan ---
+                        Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Container(
-                                width: 12,
-                                height: 24,
-                                decoration: const BoxDecoration(
-                                  color: AppColors.background,
-                                  borderRadius: BorderRadius.horizontal(right: Radius.circular(12)),
-                                ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Nama Pelanggan', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    order['customer_name'] ?? 'Pelanggan',
+                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.darkNeutral),
+                                  ),
+                                ],
                               ),
-                              Container(
-                                width: 12,
-                                height: 24,
-                                decoration: const BoxDecoration(
-                                  color: AppColors.background,
-                                  borderRadius: BorderRadius.horizontal(left: Radius.circular(12)),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text('Lokasi Pengiriman', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      order['delivery_address']?.toString().isNotEmpty == true
+                                          ? order['delivery_address']
+                                          : '${order['latitude'] ?? 0}, ${order['longitude'] ?? 0}',
+                                      textAlign: TextAlign.end,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
-                        ],
-                      ),
+                        ),
 
-                      // --- Bagian Rincian Pesanan ---
-                      Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        // Efek sobekan kertas (Dashed Divider)
+                        Stack(
+                          alignment: Alignment.center,
                           children: [
-                            Text('DETAIL PESANAN', style: TextStyle(fontSize: 11, color: Colors.grey[500], fontWeight: FontWeight.bold, letterSpacing: 0.5)),
-                            const SizedBox(height: 16),
-
-                            // Item 1
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 20),
+                              child: _DashedDivider(height: 1.0, color: Colors.grey),
+                            ),
                             Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.network('https://images.unsplash.com/photo-1541167760496-1628856ab772?q=80&w=150', width: 40, height: 40, fit: BoxFit.cover),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text('Kopi Susu Tumbas', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                      const SizedBox(height: 2),
-                                      Text('2x', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-                                    ],
+                                Container(
+                                  width: 12,
+                                  height: 24,
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.background,
+                                    borderRadius: BorderRadius.horizontal(right: Radius.circular(12)),
                                   ),
                                 ),
-                                const Text('Rp36.000', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-
-                            // Item 2
-                            Row(
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.network('https://images.unsplash.com/photo-1515823662972-da6a2e4d3002?q=80&w=150', width: 40, height: 40, fit: BoxFit.cover),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text('Matcha Garden Latte', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                      const SizedBox(height: 2),
-                                      Text('1x', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-                                    ],
+                                Container(
+                                  width: 12,
+                                  height: 24,
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.background,
+                                    borderRadius: BorderRadius.horizontal(left: Radius.circular(12)),
                                   ),
                                 ),
-                                const Text('Rp24.000', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                              ],
-                            ),
-                            const SizedBox(height: 24),
-
-                            // Hitungan Biaya
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text('Subtotal', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                                const Text('Rp60.000', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text('Biaya Layanan', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                                const Text('Rp2.000', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            Divider(color: Colors.grey[200]),
-                            const SizedBox(height: 16),
-
-                            // Total
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: const [
-                                Text('Total Bayar', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.darkNeutral)),
-                                Text('Rp62.000', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.darkAccent)),
                               ],
                             ),
                           ],
                         ),
-                      ),
-                    ],
+
+                        // --- Bagian Rincian Pesanan (DINAMIS DARI ITEM) ---
+                        Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('DETAIL PESANAN', style: TextStyle(fontSize: 11, color: Colors.grey[500], fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                              const SizedBox(height: 16),
+
+                              // LIST ITEM DINAMIS
+                              ListView.separated(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: items.length,
+                                separatorBuilder: (context, index) => const SizedBox(height: 16),
+                                itemBuilder: (context, index) {
+                                  final item = items[index];
+                                  final price = (item['price'] ?? 0) * (item['quantity'] ?? 1);
+
+                                  return Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              item['product_name'] ?? 'Produk',
+                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              '${item['quantity']}x',
+                                              style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Text(
+                                        currencyFormatter.format(price),
+                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 24),
+
+                              // Hitungan Biaya Dinamis
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('Subtotal', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                                  Text(
+                                    currencyFormatter.format(order['subtotal'] ?? 0),
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('Biaya Pengiriman/Layanan', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                                  Text(
+                                    currencyFormatter.format(order['delivery_fee'] ?? 0),
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              Divider(color: Colors.grey[200]),
+                              const SizedBox(height: 16),
+
+                              // Total Bayar Dinamis
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text('Total Bayar', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.darkNeutral)),
+                                  Text(
+                                    currencyFormatter.format(order['total_price'] ?? 0),
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.darkAccent),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 40),
+                const SizedBox(height: 40),
 
-              // 3. Action Buttons
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: controller.backToHome,
-                  icon: const Icon(Icons.home_outlined, color: Colors.white, size: 20),
-                  label: const Text('Kembali ke Beranda', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.darkAccent,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    elevation: 0,
+                // 3. Action Buttons
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: controller.backToHome,
+                    icon: const Icon(Icons.home_outlined, color: Colors.white, size: 20),
+                    label: const Text('Kembali ke Beranda', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.darkAccent,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      elevation: 0,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 16),
 
-              // Tombol Simpan Bukti Transaksi Interaktif
-              SizedBox(
-                width: double.infinity,
-                child: Obx(() => TextButton.icon(
-                  onPressed: controller.isSaving.value ? null : controller.saveInvoice,
-                  icon: controller.isSaving.value
-                      ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.darkAccent),
-                  )
-                      : const Icon(Icons.download, color: AppColors.darkAccent, size: 20),
-                  label: Text(
-                    controller.isSaving.value ? 'Menyimpan...' : 'Simpan Bukti Transaksi',
-                    style: const TextStyle(color: AppColors.darkAccent, fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
-                )),
-              ),
-              const SizedBox(height: 40),
-            ],
-          ),
-        ),
+                // Tombol Simpan Bukti Transaksi
+                SizedBox(
+                  width: double.infinity,
+                  child: Obx(() => TextButton.icon(
+                    onPressed: controller.isSaving.value ? null : controller.saveInvoice,
+                    icon: controller.isSaving.value
+                        ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.darkAccent),
+                    )
+                        : const Icon(Icons.download, color: AppColors.darkAccent, size: 20),
+                    label: Text(
+                      controller.isSaving.value ? 'Menyimpan...' : 'Simpan Bukti Transaksi',
+                      style: const TextStyle(color: AppColors.darkAccent, fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                  )),
+                ),
+                const SizedBox(height: 40),
+              ],
+            ),
+          );
+        }),
       ),
     );
   }

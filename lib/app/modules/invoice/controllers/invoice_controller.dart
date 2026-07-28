@@ -1,64 +1,132 @@
 // Lokasi: lib/app/modules/invoice/controllers/invoice_controller.dart
 
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:get/get.dart';
-import 'package:gal/gal.dart'; // Import paket gal
+import '../../../../main.dart'; // Import global client 'supabase'
 import '../../../routes/app_pages.dart';
+import 'dart:typed_data'; // Tambahkan ini untuk Uint8List
+import 'dart:ui' as ui;
+import 'package:flutter/rendering.dart';
+import 'package:image_gallery_saver/image_gallery_saver.dart';
 
 class InvoiceController extends GetxController {
   final GlobalKey invoiceKey = GlobalKey();
+
+  var isLoading = true.obs;
   var isSaving = false.obs;
 
-  void backToHome() {
-    Get.offAllNamed(Routes.HOME);
+  var orderData = <String, dynamic>{}.obs;
+  var orderItems = <Map<String, dynamic>>[].obs;
+
+  @override
+  void onInit() {
+    super.onInit();
+    fetchOrderDetail();
   }
 
+  // Ambil detail order dari Supabase
+  Future<void> fetchOrderDetail() async {
+    try {
+      isLoading.value = true;
+
+      // Tangkap order_id dari arguments
+      final String? orderId = Get.arguments?['order_id'];
+
+      if (orderId == null || orderId.isEmpty) {
+        Get.snackbar('Error', 'ID Transaksi tidak ditemukan!');
+        return;
+      }
+
+      // 1. Fetch data dari tabel 'orders'
+      final orderRes = await supabase
+          .from('orders')
+          .select()
+          .eq('id', orderId)
+          .single();
+
+      orderData.value = orderRes;
+
+      // 2. Fetch data dari tabel 'order_items'
+      final itemsRes = await supabase
+          .from('order_items')
+          .select()
+          .eq('order_id', orderId);
+
+      orderItems.value = List<Map<String, dynamic>>.from(itemsRes);
+
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Gagal mengambil data invoice: $e',
+        backgroundColor: Colors.red[700],
+        colorText: Colors.white,
+      );
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  // Kembali ke Beranda / Main Navigation
+  void backToHome() {
+    Get.offAllNamed(Routes.MAIN); // Pastikan nama route disesuaikan dengan route utama lu (misal: Routes.HOME / DASHBOARD)
+  }
+
+  // Simpan Invoice sebagai Gambar
   Future<void> saveInvoice() async {
     try {
       isSaving.value = true;
 
-      // 1. Tangkap RenderObject dari RepaintBoundary
-      RenderRepaintBoundary? boundary =
-      invoiceKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      // 1. Cari RenderRepaintBoundary berdasarkan GlobalKey invoiceKey
+      RenderRepaintBoundary? boundary = invoiceKey.currentContext
+          ?.findRenderObject() as RenderRepaintBoundary?;
 
       if (boundary == null) {
-        Get.snackbar('Gagal', 'Gagal memproses gambar invoice.');
-        isSaving.value = false;
+        Get.snackbar(
+          'Gagal',
+          'Gagal memproses tampilan struk.',
+          backgroundColor: Colors.red[700],
+          colorText: Colors.white,
+        );
         return;
       }
 
-      // 2. Convert Widget menjadi Image Pixel (Pixel Ratio 3.0 agar jernih)
-      ui.Image image = await boundary.toImage(pixelRatio: 3.0);
+      // 2. Render Boundary menjadi Gambar (PNG byte array)
+      ui.Image image = await boundary.toImage(pixelRatio: 3.0); // Ratio tinggi agar gambar tajam/HD
       var byteData = await image.toByteData(format: ui.ImageByteFormat.png);
 
       if (byteData != null) {
-        final buffer = byteData.buffer.asUint8List();
+        final Uint8List pngBytes = byteData.buffer.asUint8List();
 
-        // 3. Simpan byte gambar LANGSUNG KE GALERI HP
-        await Gal.putImageBytes(
-          buffer,
-          name: 'Invoice_TumbasKopi_${DateTime.now().millisecondsSinceEpoch}',
+        // 3. Simpan Byte Gambar ke Galeri HP
+        final result = await ImageGallerySaver.saveImage(
+          pngBytes,
+          quality: 100,
+          name: "Invoice_${orderData['id'] ?? DateTime.now().millisecondsSinceEpoch}",
         );
 
-        Get.snackbar(
-          'Berhasil Disimpan',
-          'Bukti transaksi berhasil disimpan ke Galeri HP kamu!',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: const Color(0xFF007A4B),
-          colorText: Colors.white,
-          margin: const EdgeInsets.all(16),
-          borderRadius: 12,
-        );
+        if (result['isSuccess'] == true || result['filePath'] != null) {
+          Get.snackbar(
+            'Berhasil!',
+            'Bukti transaksi berhasil disimpan ke galeri HP.',
+            backgroundColor: const Color(0xFF007A4B),
+            colorText: Colors.white,
+            snackPosition: SnackPosition.TOP,
+          );
+        } else {
+          Get.snackbar(
+            'Gagal',
+            'Tidak dapat menyimpan gambar ke galeri.',
+            backgroundColor: Colors.red[700],
+            colorText: Colors.white,
+          );
+        }
       }
     } catch (e) {
       Get.snackbar(
-        'Gagal Menyimpan',
-        'Izin galeri ditolak atau terjadi error: $e',
-        backgroundColor: Colors.redAccent,
+        'Error',
+        'Terjadi kesalahan saat menyimpan: $e',
+        backgroundColor: Colors.red[700],
         colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
       );
     } finally {
       isSaving.value = false;

@@ -1,7 +1,8 @@
+// Lokasi: lib/app/modules/payment_method/views/payment_method_view.dart
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/payment_method_controller.dart';
-import '../../../theme/app_colors.dart';
 
 class PaymentMethodView extends GetView<PaymentMethodController> {
   const PaymentMethodView({super.key});
@@ -9,207 +10,139 @@ class PaymentMethodView extends GetView<PaymentMethodController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.darkAccent),
-          onPressed: () => Get.back(),
-        ),
         title: const Text(
-          'Metode Pembayaran',
-          style: TextStyle(color: AppColors.darkAccent, fontWeight: FontWeight.bold, fontSize: 18),
+          'Pilih Metode Pembayaran',
+          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 16),
         ),
         centerTitle: true,
+        backgroundColor: Colors.white,
+        elevation: 0.5,
+        iconTheme: const IconThemeData(color: Colors.black87),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
+      body: SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Card Total Bayar
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.withOpacity(0.2)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Total Bayar', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                  const SizedBox(height: 4),
-                  const Text('Rp36.000', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.darkAccent)),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12),
-                    child: Divider(),
-                  ),
-                  Row(
-                    children: [
-                      Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Sudah termasuk pajak dan biaya layanan.',
-                          style: TextStyle(color: Colors.grey[600], fontSize: 11),
+            Expanded(
+              child: Obx(() {
+                if (controller.isLoading.value) {
+                  return const Center(
+                    child: CircularProgressIndicator(color: Color(0xFF007A4B)),
+                  );
+                }
+
+                if (controller.paymentMethods.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.payment_outlined, size: 48, color: Colors.grey[400]),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Metode pembayaran tidak tersedia',
+                          style: TextStyle(color: Colors.grey, fontSize: 13),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // E-Wallet Section
-            Row(
-              children: const [
-                Icon(Icons.account_balance_wallet, size: 18, color: AppColors.darkAccent),
-                SizedBox(width: 8),
-                Text('E-Wallet', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.darkNeutral)),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _buildPaymentOption('GoPay', Icons.account_balance_wallet, Colors.blue),
-            _buildPaymentOption('OVO', Icons.account_balance_wallet, Colors.purple),
-            _buildPaymentOption('Dana', Icons.account_balance_wallet, Colors.blueAccent),
-            _buildPaymentOption('ShopeePay', Icons.account_balance_wallet, Colors.deepOrange),
-
-            const SizedBox(height: 24),
-
-            // Virtual Account Section (BARU)
-            Row(
-              children: const [
-                Icon(Icons.account_balance, size: 18, color: AppColors.darkAccent),
-                SizedBox(width: 8),
-                Text('Virtual Account', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.darkNeutral)),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _buildPaymentOption('BCA Virtual Account', Icons.account_balance, Colors.blue[800]!),
-            _buildPaymentOption('Mandiri Virtual Account', Icons.account_balance, Colors.orange[700]!),
-            _buildPaymentOption('BNI Virtual Account', Icons.account_balance, Colors.teal),
-            _buildPaymentOption('BRI Virtual Account', Icons.account_balance, Colors.blue[600]!),
-
-            const SizedBox(height: 24),
-
-            // Instruksi Pembayaran (Dibungkus Obx biar dinamis)
-            Obx(() {
-              return Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: const [
-                        Icon(Icons.receipt_long, size: 18, color: AppColors.darkAccent),
-                        SizedBox(width: 8),
-                        Text('Instruksi Pembayaran', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                        'Silakan transfer ke ${controller.selectedMethod.value}:',
-                        style: const TextStyle(fontSize: 12, color: Colors.grey)
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            controller.virtualAccount,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1),
-                          ),
-                          GestureDetector(
-                            onTap: controller.copyToClipboard,
-                            child: const Icon(Icons.copy, color: AppColors.darkAccent, size: 20),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Center(child: Text('(a.n. Tumbas Kopi)', style: TextStyle(fontSize: 11, color: Colors.grey))),
-                  ],
-                ),
-              );
-            }),
-            const SizedBox(height: 100),
-          ],
-        ),
-      ),
+                  );
+                }
 
-      bottomSheet: Container(
-        padding: const EdgeInsets.all(20),
-        color: AppColors.background,
-        child: SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: controller.goToConfirmation,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.darkAccent,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              elevation: 0,
+                // Grouping berdasarkan kategori (misal: E-Wallet, Bank Transfer, dll)
+                final methods = controller.paymentMethods;
+
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: methods.length,
+                  itemBuilder: (context, index) {
+                    final method = methods[index];
+                    return _buildPaymentTile(method);
+                  },
+                );
+              }),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Text('Lanjut ke Pembayaran', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                SizedBox(width: 8),
-                Icon(Icons.arrow_forward, color: Colors.white, size: 18),
-              ],
+
+            // Tombol Konfirmasi Pembayaran
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, -2)),
+                ],
+              ),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: controller.confirmSelection,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF007A4B),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                  child: const Text(
+                    'Gunakan Metode Ini',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                ),
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
   }
 
-  // Widget helper
-  Widget _buildPaymentOption(String title, IconData icon, Color iconColor) {
+  Widget _buildPaymentTile(Map<String, dynamic> method) {
+    final String name = method['name']?.toString() ?? 'Metode Pembayaran';
+    final String category = method['category']?.toString() ?? 'Lainnya';
+    final String? iconUrl = method['icon_url']?.toString();
+    final String methodId = method['id']?.toString() ?? '';
+
     return Obx(() {
-      final isSelected = controller.selectedMethod.value == title;
-      return GestureDetector(
-        onTap: () => controller.setPaymentMethod(title),
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected ? AppColors.darkAccent : Colors.grey.withOpacity(0.2),
-              width: isSelected ? 1.5 : 1,
-            ),
+      final isSelected = controller.selectedPaymentMethod['id']?.toString() == methodId;
+
+      return Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF007A4B) : Colors.grey[300]!,
+            width: isSelected ? 2 : 1,
           ),
-          child: Row(
-            children: [
-              Icon(icon, color: iconColor, size: 24),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                ),
-              ),
-              Icon(
-                isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
-                color: isSelected ? AppColors.darkAccent : Colors.grey,
-              ),
-            ],
+        ),
+        child: ListTile(
+          onTap: () => controller.selectPaymentMethod(method),
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: (iconUrl != null && iconUrl.isNotEmpty)
+                ? Image.network(
+              iconUrl,
+              fit: BoxFit.contain,
+              errorBuilder: (ctx, err, stack) => const Icon(Icons.account_balance_wallet, color: Color(0xFF007A4B)),
+            )
+                : const Icon(Icons.account_balance_wallet, color: Color(0xFF007A4B)),
+          ),
+          title: Text(
+            name,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          ),
+          subtitle: Text(
+            category,
+            style: const TextStyle(fontSize: 11, color: Colors.grey),
+          ),
+          trailing: Radio<String>(
+            value: methodId,
+            groupValue: controller.selectedPaymentMethod['id']?.toString(),
+            activeColor: const Color(0xFF007A4B),
+            onChanged: (val) => controller.selectPaymentMethod(method),
           ),
         ),
       );

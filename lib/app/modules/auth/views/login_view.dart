@@ -1,8 +1,10 @@
+// Lokasi: lib/app/modules/auth/views/login_view.dart
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/auth_controller.dart';
-import '../../../routes/app_pages.dart'; // Import app_pages.dart
-import '../../../theme/app_colors.dart'; // Pastikan path ini pas
+import '../../../routes/app_pages.dart';
+import '../../../theme/app_colors.dart';
 
 class LoginView extends GetView<AuthController> {
   const LoginView({super.key});
@@ -23,7 +25,7 @@ class LoginView extends GetView<AuthController> {
               // Logo & Title
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: AppColors.secondary,
                   shape: BoxShape.circle,
                 ),
@@ -74,7 +76,8 @@ class LoginView extends GetView<AuthController> {
                     const Text('Email', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
                     TextField(
-                      controller: controller.emailLoginCtrl,
+                      controller: controller.loginEmailController,
+                      keyboardType: TextInputType.emailAddress,
                       decoration: InputDecoration(
                         hintText: 'nama@email.com',
                         filled: true,
@@ -90,9 +93,9 @@ class LoginView extends GetView<AuthController> {
                     // Input Password
                     const Text('Password', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
-                    Obx(() => TextField(
-                      controller: controller.passwordLoginCtrl,
-                      obscureText: controller.isLoginPasswordHidden.value,
+                    TextField(
+                      controller: controller.loginPasswordController,
+                      obscureText: true, // Ubah jadi true biasa atau pakai obs di controller
                       decoration: InputDecoration(
                         hintText: '********',
                         filled: true,
@@ -101,24 +104,13 @@ class LoginView extends GetView<AuthController> {
                           borderRadius: BorderRadius.circular(8),
                           borderSide: BorderSide.none,
                         ),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            controller.isLoginPasswordHidden.value
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                            color: Colors.grey,
-                          ),
-                          onPressed: () {
-                            controller.isLoginPasswordHidden.toggle();
-                          },
-                        ),
                       ),
-                    )),
+                    ),
                     const SizedBox(height: 24),
 
-                    // Tombol Masuk
-                    ElevatedButton(
-                      onPressed: controller.login,
+                    // Tombol Masuk dengan Loading State
+                    Obx(() => ElevatedButton(
+                      onPressed: controller.isLoading.value ? null : controller.login,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.darkAccent,
                         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -126,11 +118,20 @@ class LoginView extends GetView<AuthController> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child: const Text(
+                      child: controller.isLoading.value
+                          ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                          : const Text(
                         'Masuk',
                         style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                       ),
-                    ),
+                    )),
                     const SizedBox(height: 16),
 
                     // Daftar Link

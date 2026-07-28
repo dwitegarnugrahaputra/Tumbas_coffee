@@ -4,13 +4,15 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/profile_controller.dart';
+import '../../../../main.dart'; // Import client 'supabase'
+import '../../../routes/app_pages.dart';
 
 class ProfileView extends GetView<ProfileController> {
   const ProfileView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    Get.put(ProfileController());
+    // Note: Inisialisasi controller dikelola oleh Bindings (ProfileBinding / MainBinding)
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -22,9 +24,10 @@ class ProfileView extends GetView<ProfileController> {
             // ==========================================
             Stack(
               children: [
+                // Container Background Header
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(20, 50, 20, 70),
+                  padding: const EdgeInsets.fromLTRB(20, 50, 20, 80),
                   decoration: const BoxDecoration(
                     color: Color(0xFF007A4B),
                   ),
@@ -42,21 +45,23 @@ class ProfileView extends GetView<ProfileController> {
                       const SizedBox(height: 20),
                       Row(
                         children: [
-                          // Avatar Circle Utama Header
+                          // Avatar Circle Header Utama
                           Obx(() {
-                            final hasImage = controller.profileImagePath.value.isNotEmpty;
+                            final hasLocalImage = controller.profileImagePath.value.isNotEmpty;
                             return CircleAvatar(
                               radius: 32,
-                              backgroundColor: Colors.white.withOpacity(0.2),
-                              backgroundImage: hasImage
+                              backgroundColor: Colors.white24,
+                              backgroundImage: hasLocalImage
                                   ? FileImage(File(controller.profileImagePath.value))
                                   : null,
-                              child: !hasImage
-                                  ? const Icon(Icons.person, size: 40, color: Colors.white)
+                              child: !hasLocalImage
+                                  ? const Icon(Icons.person, size: 36, color: Colors.white)
                                   : null,
                             );
                           }),
                           const SizedBox(width: 16),
+
+                          // Ringkasan Info User Header
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -69,14 +74,14 @@ class ProfileView extends GetView<ProfileController> {
                                     fontWeight: FontWeight.bold,
                                   ),
                                 )),
-                                const SizedBox(height: 2),
+                                const SizedBox(height: 4),
                                 Obx(() => Text(
                                   controller.phone.value,
-                                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                                  style: const TextStyle(color: Colors.white70, fontSize: 12),
                                 )),
                                 Obx(() => Text(
                                   controller.email.value,
-                                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                                  style: const TextStyle(color: Colors.white70, fontSize: 12),
                                 )),
                               ],
                             ),
@@ -87,68 +92,75 @@ class ProfileView extends GetView<ProfileController> {
                   ),
                 ),
 
-                // Card Lengkapi Profil
-                Container(
-                  margin: const EdgeInsets.fromLTRB(20, 180, 20, 0),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FCF9),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                    border: Border.all(color: Colors.grey[200]!),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Lengkapi profil kamu',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                          ),
-                          GestureDetector(
-                            onTap: () => _showEditProfileSheet(context),
-                            child: Row(
-                              children: [
-                                Obx(() => Text(
-                                  '${controller.completionProgress.value}/${controller.totalSteps}',
-                                  style: const TextStyle(
+                // Floating Card "Lengkapi Profil Kamu" (Sembunyi otomatis jika 6/6)
+                Obx(() {
+                  if (controller.completionProgress.value >= controller.totalSteps) {
+                    return const SizedBox.shrink();
+                  }
+
+                  return Container(
+                    margin: const EdgeInsets.fromLTRB(20, 170, 20, 0),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FCF9),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                      border: Border.all(color: Colors.grey[200]!),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Lengkapi profil kamu',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                            ),
+                            GestureDetector(
+                              onTap: () => _showEditProfileSheet(context),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    '${controller.completionProgress.value}/${controller.totalSteps}',
+                                    style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12,
-                                      color: Color(0xFF007A4B)),
-                                )),
-                                const SizedBox(width: 4),
-                                const Icon(Icons.chevron_right, size: 18, color: Color(0xFF007A4B)),
-                              ],
+                                      color: Color(0xFF007A4B),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.chevron_right, size: 18, color: Color(0xFF007A4B)),
+                                ],
+                              ),
                             ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: controller.completionProgress.value / controller.totalSteps,
+                            backgroundColor: Colors.grey[200],
+                            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF007A4B)),
+                            minHeight: 6,
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: Obx(() => LinearProgressIndicator(
-                          value: controller.completionProgress.value / controller.totalSteps,
-                          backgroundColor: Colors.grey[200],
-                          valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF007A4B)),
-                          minHeight: 6,
-                        )),
-                      ),
-                      const SizedBox(height: 10),
-                      const Text(
-                        'Tambahkan Jenis Kelamin & Foto Profil di pengaturan profil.',
-                        style: TextStyle(fontSize: 11, color: Colors.black87),
-                      ),
-                    ],
-                  ),
-                ),
+                        ),
+                        const SizedBox(height: 10),
+                        const Text(
+                          'Tambahkan Jenis Kelamin & Foto Profil di pengaturan profil.',
+                          style: TextStyle(fontSize: 11, color: Colors.black87),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
               ],
             ),
 
@@ -191,6 +203,7 @@ class ProfileView extends GetView<ProfileController> {
 
                   const SizedBox(height: 24),
 
+                  // Tombol Keluar dari Akun
                   Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
@@ -246,7 +259,7 @@ class ProfileView extends GetView<ProfileController> {
     );
   }
 
-  // BottomSheet Ubah Profil (Menggunakan Image.file)
+  // BottomSheet Ubah Profil
   void _showEditProfileSheet(BuildContext context) {
     controller.nameController.text = controller.name.value;
     controller.phoneController.text = controller.phone.value;
@@ -273,7 +286,7 @@ class ProfileView extends GetView<ProfileController> {
               ),
               const SizedBox(height: 12),
 
-              // UBAH FOTO PROFIL
+              // Pick Foto Profil
               Center(
                 child: Stack(
                   children: [
@@ -389,15 +402,21 @@ class ProfileView extends GetView<ProfileController> {
 
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: controller.saveProfile,
+                child: Obx(() => ElevatedButton(
+                  onPressed: controller.isLoading.value ? null : controller.saveProfile,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF007A4B),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text('Simpan Perubahan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                ),
+                  child: controller.isLoading.value
+                      ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                  )
+                      : const Text('Simpan Perubahan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                )),
               ),
             ],
           ),
@@ -482,14 +501,14 @@ class ProfileView extends GetView<ProfileController> {
             child: const Text('Batal', style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
-            onPressed: () {
-              Get.back(); // Tutup dialog
+            onPressed: () async {
+              Get.back();
 
-              // 1. Bersihkan state/session (jika ada)
-              // controller.profileImagePath.value = '';
+              // 1. Terminate Supabase Auth Session
+              await supabase.auth.signOut();
 
-              // 2. Routing ke Halaman Login & bersihkan stack navigasi
-              Get.offAllNamed('/login'); // Sesuaikan dengan route login kamu (misal: Routes.LOGIN)
+              // 2. Clear & Redirection to Auth/Login Page
+              Get.offAllNamed(Routes.LOGIN);
 
               Get.snackbar(
                 'Berhasil Keluar',
@@ -533,43 +552,53 @@ class ProfileView extends GetView<ProfileController> {
             ),
             const SizedBox(height: 16),
             Flexible(
-              child: ListView.separated(
-                shrinkWrap: true,
-                itemCount: controller.logActivities.length,
-                separatorBuilder: (context, index) => const Divider(height: 16),
-                itemBuilder: (context, index) {
-                  final log = controller.logActivities[index];
-                  final isCurrent = log['status'] == 'Aktif Sekarang';
+              child: Obx(() {
+                if (controller.logActivities.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(child: Text('Belum ada log aktivitas tercatat.', style: TextStyle(color: Colors.grey))),
+                  );
+                }
 
-                  return ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: isCurrent ? const Color(0xFFE2F0D9) : Colors.grey[100],
-                        shape: BoxShape.circle,
+                return ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: controller.logActivities.length,
+                  separatorBuilder: (context, index) => const Divider(height: 16),
+                  itemBuilder: (context, index) {
+                    final log = controller.logActivities[index];
+                    final isCurrent = log['status'] == 'Aktif / Login';
+
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: isCurrent ? const Color(0xFFE2F0D9) : Colors.grey[100],
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.devices, color: isCurrent ? const Color(0xFF007A4B) : Colors.grey, size: 20),
                       ),
-                      child: Icon(Icons.devices, color: isCurrent ? const Color(0xFF007A4B) : Colors.grey, size: 20),
-                    ),
-                    title: Text(log['device']!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                    subtitle: Text('${log['location']} • ${log['time']}', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: isCurrent ? const Color(0xFF007A4B) : Colors.grey[200],
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        log['status']!,
-                        style: TextStyle(
+                      title: Text(log['device'] ?? 'Mobile Device', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      subtitle: Text('${log['location']} • ${log['time']}', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                      trailing: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isCurrent ? const Color(0xFF007A4B) : Colors.grey[200],
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          log['status'] ?? 'Aktif',
+                          style: TextStyle(
                             color: isCurrent ? Colors.white : Colors.grey[700],
                             fontSize: 10,
-                            fontWeight: FontWeight.bold),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                    ),
-                  );
-                },
-              ),
+                    );
+                  },
+                );
+              }),
             ),
           ],
         ),

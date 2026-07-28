@@ -1,156 +1,125 @@
 // Lokasi: lib/app/modules/order/controllers/order_controller.dart
 
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
+import '../../../../main.dart'; // Import global client 'supabase'
 import '../../../routes/app_pages.dart';
 
 class OrderController extends GetxController {
-  // 1. Order Type State ('Antar' atau 'Ambil')
-  var orderType = 'Antar'.obs;
-  var userAddress = 'Mencari lokasi...'.obs;
+  // State Reactive Katalog Produk
+  var allProducts = <Map<String, dynamic>>[].obs;
+  var filteredProducts = <Map<String, dynamic>>[].obs;
+  var isLoading = false.obs;
 
-  // 2. Filter Kategori
-  var selectedCategory = 'Signature Series'.obs;
-  final categories = ['Signature Series', 'Espresso', 'Non-Coffee', 'Pastry'];
+  // Search, Filter & Location
+  var selectedCategory = 'Semua'.obs;
+  var searchQuery = ''.obs;
+  var isSearchOpen = false.obs;
+  var userAddress = 'Jl. Narasoma, Purbalingga Wetan, Purbalingga'.obs; // <-- Penambahan Variabel
 
-  // 3. LOGIC & STATE PENCARIAN (SEARCH)
-  var isSearchOpen = false.obs; // Toggle visibilitas search bar
-  var searchQuery = ''.obs;      // Keyword pencarian
+  // List Kategori untuk Tab UI
+  final List<String> categories = [
+    'Semua',
+    'Espresso',
+    'Non-Coffee',
+    'Pastry',
+    'Beans'
+  ];
 
-  // Cart State (Simpan jumlah per ID produk)
-  var cartItems = <String, int>{}.obs;
+  // Order Type (Dine In / Take Away)
+  var orderType = 'Dine In'.obs;
 
-  // State untuk Detail Product BottomSheet
+  // Detail Modal BottomSheet State
+  var selectedProductForDetail = <String, dynamic>{}.obs;
   var selectedTemperature = 'Ice'.obs;
-  var selectedSugarLevel = 'Normal'.obs;
+  var selectedSugarLevel = 'Normal Sugar'.obs;
   var quantity = 1.obs;
 
-  // Dummy List Produk
-  final products = [
-    {
-      'id': '1',
-      'name': 'Iced Oat Aren Latte',
-      'category': 'Signature Series',
-      'price': 25000,
-      'originalPrice': 25000,
-      'badge': 'AMBIL SEKARANG',
-      'description': 'Kopi susu gula aren khas Tumbas dengan racikan oat milk nikmat.',
-      'image': 'https://images.unsplash.com/photo-1541167760496-1628856ab772?q=80&w=400',
-    },
-    {
-      'id': '2',
-      'name': 'Iced Markisa Apelkano',
-      'category': 'Signature Series',
-      'price': 20000,
-      'originalPrice': 25000,
-      'badge': 'AMBIL SEKARANG',
-      'description': 'Paduan espresso segar dengan rasa manis markisa dan apel.',
-      'image': 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=400',
-    },
-    {
-      'id': '3',
-      'name': 'Iced Peach Jerukano',
-      'category': 'Signature Series',
-      'price': 20000,
-      'originalPrice': 25000,
-      'badge': 'AMBIL SEKARANG',
-      'description': 'Espresso dingin dipadu rasa buah peach dan bulir jeruk segar.',
-      'image': 'https://images.unsplash.com/photo-1536256263959-770b48d82b0a?q=80&w=400',
-    },
-    {
-      'id': '4',
-      'name': 'Iced Lychee Berrikano',
-      'category': 'Signature Series',
-      'price': 20000,
-      'originalPrice': 25000,
-      'badge': 'AMBIL SEKARANG',
-      'description': 'Espresso dingin dengan kesegaran rasa buah leci dan berri.',
-      'image': 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?q=80&w=400',
-    },
-  ];
+  // Keranjang Belanja (Key: product_id, Value: quantity)
+  var cart = <String, int>{}.obs;
 
   @override
   void onInit() {
     super.onInit();
-    getCurrentLocation();
+    fetchProductsFromSupabase();
   }
 
-  // Toggle Buka / Tutup Search Bar
+  // 1. FETCH DATA PRODUK DARI SUPABASE (FR-BE-03)
+  Future<void> fetchProductsFromSupabase() async {
+    try {
+      isLoading.value = true;
+
+      final List<dynamic> response = await supabase
+          .from('products')
+          .select()
+          .eq('is_available', true)
+          .order('name', ascending: true);
+
+      allProducts.value = List<Map<String, dynamic>>.from(response);
+      applyFilterAndSearch();
+    } catch (e) {
+      Get.snackbar('Error Produk', 'Gagal memuat katalog menu: $e');
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  // Toggle Tampilan Search Bar
   void toggleSearch() {
     isSearchOpen.value = !isSearchOpen.value;
     if (!isSearchOpen.value) {
-      searchQuery.value = ''; // Clear keyword kalau search bar ditutup
+      searchQuery.value = '';
+      applyFilterAndSearch();
     }
   }
 
-  // --- FUNGSI GPS SINKRON DENGAN MAPS ---
-  Future<void> getCurrentLocation() async {
-    bool serviceEnabled;
-    LocationPermission permission;
-
-    try {
-      serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        userAddress.value = 'GPS HP belum dinyalakan';
-        return;
-      }
-
-      permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          userAddress.value = 'Izin lokasi ditolak';
-          return;
-        }
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        userAddress.value = 'Izin lokasi diblokir';
-        return;
-      }
-
-      Position position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
-
-      final Geocoding geocode = Geocoding();
-      List<Placemark> placemarks = await geocode.placemarkFromCoordinates(
-          position.latitude, position.longitude);
-
-      if (placemarks.isNotEmpty) {
-        Placemark place = placemarks[0];
-        String street = place.street ?? '';
-        String locality = place.locality ?? '';
-
-        String address = '$street, $locality'.replaceAll(RegExp(r'^, |,$'), '');
-        userAddress.value = address;
-      }
-    } catch (e) {
-      userAddress.value = 'Gagal memuat lokasi';
-    }
-  }
-
+  // Set Order Type
   void setOrderType(String type) {
     orderType.value = type;
   }
 
-  // Getter List Produk terfilter (Berdasarkan Kategori & Kata Kunci Search)
-  List<Map<String, dynamic>> get filteredProducts {
-    return products.where((product) {
-      final matchesCategory = selectedCategory.value == 'Semua' ||
-          product['category'] == selectedCategory.value;
-      final matchesSearch = product['name']
-          .toString()
-          .toLowerCase()
-          .contains(searchQuery.value.toLowerCase());
-      return matchesCategory && matchesSearch;
-    }).toList();
+  // Filter Kategori
+  void filterByCategory(String category) {
+    selectedCategory.value = category;
+    applyFilterAndSearch();
   }
 
-  // ===== METHOD UNTUK BOTTOM SHEET DETAIL PRODUK =====
+  // Search Product
+  void searchProduct(String query) {
+    searchQuery.value = query;
+    applyFilterAndSearch();
+  }
+
+  void applyFilterAndSearch() {
+    var result = allProducts.toList();
+
+    // Filter Kategori
+    if (selectedCategory.value != 'Semua') {
+      result = result
+          .where((p) =>
+      p['category'].toString().toLowerCase() ==
+          selectedCategory.value.toLowerCase())
+          .toList();
+    }
+
+    // Filter Query Search
+    if (searchQuery.value.isNotEmpty) {
+      result = result
+          .where((p) => p['name']
+          .toString()
+          .toLowerCase()
+          .contains(searchQuery.value.toLowerCase()))
+          .toList();
+    }
+
+    filteredProducts.value = result;
+  }
+
+  // 2. KERANJANG BELANJA & ALUR CUSTOM DETAIL
   void openProductDetail(Map<String, dynamic> product) {
+    selectedProductForDetail.value = product;
     selectedTemperature.value = 'Ice';
-    selectedSugarLevel.value = 'Normal';
+    selectedSugarLevel.value = 'Normal Sugar';
     quantity.value = 1;
   }
 
@@ -164,39 +133,100 @@ class OrderController extends GetxController {
     }
   }
 
-  void addToCartFromDetail(String productId) {
-    final currentQty = cartItems[productId] ?? 0;
-    cartItems[productId] = currentQty + quantity.value;
-    Get.back();
+  // <-- UPDATE: Tambah parameter opsional agar matching dengan View
+  void addToCartFromDetail([Map<String, dynamic>? product]) {
+    final targetProduct = (product != null && product.isNotEmpty)
+        ? product
+        : selectedProductForDetail;
+
+    final String? productId = targetProduct['id'];
+
+    if (productId == null) return;
+
+    if (cart.containsKey(productId)) {
+      cart[productId] = cart[productId]! + quantity.value;
+    } else {
+      cart[productId] = quantity.value;
+    }
+
+    if (Get.isBottomSheetOpen ?? false) {
+      Get.back(); // Tutup BottomSheet Detail
+    }
+
+    Get.snackbar(
+      'Ditambahkan',
+      '${targetProduct['name'] ?? 'Produk'} berhasil ditambahkan ke keranjang!',
+      backgroundColor: const Color(0xFF007A4B),
+      colorText: Colors.white,
+      snackPosition: SnackPosition.TOP,
+      duration: const Duration(seconds: 2),
+    );
   }
 
-  // ===== METHOD KERANJANG UMUM =====
   void addToCart(String productId) {
-    if (cartItems.containsKey(productId)) {
-      cartItems[productId] = cartItems[productId]! + 1;
+    if (cart.containsKey(productId)) {
+      cart[productId] = cart[productId]! + 1;
     } else {
-      cartItems[productId] = 1;
+      cart[productId] = 1;
     }
   }
 
-  int get totalCartItems {
-    int total = 0;
-    cartItems.forEach((key, value) {
-      total += value;
-    });
-    return total;
+  void removeFromCart(String productId) {
+    if (cart.containsKey(productId)) {
+      if (cart[productId]! > 1) {
+        cart[productId] = cart[productId]! - 1;
+      } else {
+        cart.remove(productId);
+      }
+    }
   }
 
+  int getQuantity(String productId) {
+    return cart[productId] ?? 0;
+  }
+
+  int get totalCartItems {
+    return cart.values.fold(0, (sum, item) => sum + item);
+  }
+
+  // Alias Getter Total Price untuk UI
   int get totalCartPrice {
     int total = 0;
-    cartItems.forEach((productId, qty) {
-      final product = products.firstWhere((p) => p['id'] == productId);
-      total += (product['price'] as int) * qty;
+    cart.forEach((productId, qty) {
+      final product = allProducts.firstWhere(
+            (p) => p['id'] == productId,
+        orElse: () => {'price': 0},
+      );
+      final price = (product['price'] is num) ? (product['price'] as num).toInt() : 0;
+      total += price * qty;
     });
     return total;
   }
 
+  int get totalPrice => totalCartPrice;
+
+  // Navigasi ke Checkout
   void goToCheckout() {
+    if (cart.isEmpty) {
+      Get.snackbar('Keranjang Kosong', 'Pilih minimal 1 menu sebelum checkout!');
+      return;
+    }
     Get.toNamed(Routes.CHECKOUT);
+  }
+
+  // Ringkasan Item Cart
+  List<Map<String, dynamic>> get cartItemsSummary {
+    List<Map<String, dynamic>> summary = [];
+    cart.forEach((productId, qty) {
+      final product = allProducts.firstWhere((p) => p['id'] == productId);
+      summary.add({
+        'product_id': productId,
+        'name': product['name'],
+        'price': product['price'],
+        'quantity': qty,
+        'image_url': product['image_url'],
+      });
+    });
+    return summary;
   }
 }

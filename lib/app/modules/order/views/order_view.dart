@@ -54,11 +54,16 @@ class OrderView extends GetView<OrderController> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                controller.orderType.value == 'Antar' ? 'ALAMAT PENGIRIMAN' : 'LOKASI AMBIL',
-                                style: const TextStyle(fontSize: 9, color: Colors.grey, fontWeight: FontWeight.bold),
+                                controller.orderType.value == 'Antar'
+                                    ? 'ALAMAT PENGIRIMAN'
+                                    : 'LOKASI AMBIL',
+                                style: const TextStyle(
+                                    fontSize: 9, color: Colors.grey, fontWeight: FontWeight.bold),
                               ),
                               Text(
-                                controller.userAddress.value,
+                                controller.userAddress.value.isNotEmpty
+                                    ? controller.userAddress.value
+                                    : 'Alamat belum diatur',
                                 style: const TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
@@ -111,7 +116,8 @@ class OrderView extends GetView<OrderController> {
                             items: controller.categories.map((String value) {
                               return DropdownMenuItem<String>(
                                 value: value,
-                                child: Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                                child: Text(value,
+                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                               );
                             }).toList(),
                             onChanged: (newValue) {
@@ -210,6 +216,12 @@ class OrderView extends GetView<OrderController> {
                 // ==========================================
                 Expanded(
                   child: Obx(() {
+                    if (controller.isLoading.value) {
+                      return const Center(
+                        child: CircularProgressIndicator(color: Color(0xFF007A4B)),
+                      );
+                    }
+
                     final products = controller.filteredProducts;
                     if (products.isEmpty) {
                       return Center(
@@ -219,7 +231,9 @@ class OrderView extends GetView<OrderController> {
                             Icon(Icons.search_off, size: 48, color: Colors.grey[400]),
                             const SizedBox(height: 8),
                             Text(
-                              'Menu "${controller.searchQuery.value}" tidak ditemukan',
+                              controller.searchQuery.value.isNotEmpty
+                                  ? 'Menu "${controller.searchQuery.value}" tidak ditemukan'
+                                  : 'Menu belum tersedia',
                               style: const TextStyle(color: Colors.grey, fontSize: 13),
                             ),
                           ],
@@ -278,7 +292,8 @@ class OrderView extends GetView<OrderController> {
                         children: [
                           Text(
                             '${controller.totalCartItems} Item',
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                            style: const TextStyle(
+                                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                           ),
                           Text(
                             currencyFormatter.format(controller.totalCartPrice),
@@ -297,7 +312,11 @@ class OrderView extends GetView<OrderController> {
                         ),
                         child: Row(
                           children: const [
-                            Text('Lanjut Checkout', style: TextStyle(color: Color(0xFF007A4B), fontWeight: FontWeight.bold, fontSize: 12)),
+                            Text('Lanjut Checkout',
+                                style: TextStyle(
+                                    color: Color(0xFF007A4B),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12)),
                             SizedBox(width: 4),
                             Icon(Icons.arrow_forward, color: Color(0xFF007A4B), size: 16),
                           ],
@@ -337,27 +356,35 @@ class OrderView extends GetView<OrderController> {
     );
   }
 
+  // Helper untuk mengekstrak URL gambar secara aman dari key 'image_url' atau 'image'
+  String _getImageUrl(Map<String, dynamic> item) {
+    final url = item['image_url'] ?? item['image'];
+    return (url is String && url.isNotEmpty) ? url : '';
+  }
+
   // Widget Item Produk
   Widget _buildPointCoffeeProductTile(
       BuildContext context, Map<String, dynamic> item, NumberFormat currencyFormatter) {
+    final imageUrl = _getImageUrl(item);
+    final String name = item['name']?.toString() ?? 'Nama Produk';
+    final num priceNum = (item['price'] is num) ? (item['price'] as num) : 0;
+    final num? originalPriceNum = (item['originalPrice'] is num) ? (item['originalPrice'] as num) : null;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       child: Row(
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: Image.network(
-              item['image'],
+            child: imageUrl.isNotEmpty
+                ? Image.network(
+              imageUrl,
               width: 90,
               height: 90,
               fit: BoxFit.cover,
-              errorBuilder: (ctx, err, stack) => Container(
-                width: 90,
-                height: 90,
-                color: Colors.grey[200],
-                child: const Icon(Icons.local_cafe, color: Colors.grey),
-              ),
-            ),
+              errorBuilder: (ctx, err, stack) => _buildImagePlaceholder(),
+            )
+                : _buildImagePlaceholder(),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -365,7 +392,7 @@ class OrderView extends GetView<OrderController> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  item['name'],
+                  name,
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                 ),
                 const SizedBox(height: 4),
@@ -381,7 +408,7 @@ class OrderView extends GetView<OrderController> {
                       const Icon(Icons.electric_bolt, color: Colors.white, size: 12),
                       const SizedBox(width: 2),
                       Text(
-                        item['badge'] ?? 'AMBIL SEKARANG',
+                        item['badge']?.toString() ?? 'AMBIL SEKARANG',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 9,
@@ -395,17 +422,17 @@ class OrderView extends GetView<OrderController> {
                 Row(
                   children: [
                     Text(
-                      currencyFormatter.format(item['price']),
+                      currencyFormatter.format(priceNum),
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
                         color: Colors.black87,
                       ),
                     ),
-                    if (item['originalPrice'] != null && item['originalPrice'] > item['price']) ...[
+                    if (originalPriceNum != null && originalPriceNum > priceNum) ...[
                       const SizedBox(width: 8),
                       Text(
-                        currencyFormatter.format(item['originalPrice']),
+                        currencyFormatter.format(originalPriceNum),
                         style: const TextStyle(
                           fontSize: 11,
                           color: Colors.grey,
@@ -434,10 +461,24 @@ class OrderView extends GetView<OrderController> {
     );
   }
 
+  Widget _buildImagePlaceholder() {
+    return Container(
+      width: 90,
+      height: 90,
+      color: Colors.grey[200],
+      child: const Icon(Icons.local_cafe, color: Colors.grey),
+    );
+  }
+
   // Method Modal Detail Produk
   void _showProductDetail(BuildContext context, Map<String, dynamic> item) {
     final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp', decimalDigits: 0);
     controller.openProductDetail(item);
+
+    final imageUrl = _getImageUrl(item);
+    final String name = item['name']?.toString() ?? 'Nama Produk';
+    final String description = item['description']?.toString() ?? 'Tidak ada deskripsi produk.';
+    final int price = (item['price'] is num) ? (item['price'] as num).toInt() : 0;
 
     Get.bottomSheet(
       Container(
@@ -457,11 +498,24 @@ class OrderView extends GetView<OrderController> {
                     children: [
                       Stack(
                         children: [
-                          Image.network(
-                            item['image'],
+                          imageUrl.isNotEmpty
+                              ? Image.network(
+                            imageUrl,
                             height: 250,
                             width: double.infinity,
                             fit: BoxFit.cover,
+                            errorBuilder: (ctx, err, stack) => Container(
+                              height: 250,
+                              width: double.infinity,
+                              color: Colors.grey[200],
+                              child: const Icon(Icons.local_cafe, size: 48, color: Colors.grey),
+                            ),
+                          )
+                              : Container(
+                            height: 250,
+                            width: double.infinity,
+                            color: Colors.grey[200],
+                            child: const Icon(Icons.local_cafe, size: 48, color: Colors.grey),
                           ),
                           Positioned(
                             right: 16,
@@ -490,51 +544,83 @@ class OrderView extends GetView<OrderController> {
                               children: [
                                 Expanded(
                                   child: Text(
-                                    item['name'],
+                                    name,
                                     style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                                   ),
                                 ),
                                 Text(
-                                  currencyFormatter.format(item['price']),
-                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF007A4B)),
+                                  currencyFormatter.format(price),
+                                  style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF007A4B)),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 8),
-                            Text(item['description'], style: const TextStyle(fontSize: 13, color: Colors.grey)),
+                            Text(description, style: const TextStyle(fontSize: 13, color: Colors.grey)),
                             const SizedBox(height: 24),
-                            const Text('TEMPERATURE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
+                            const Text('TEMPERATURE',
+                                style: TextStyle(
+                                    fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
                             const SizedBox(height: 12),
                             Obx(() => Row(
                               children: [
-                                _buildOptionChip('Hot', Icons.wb_sunny_outlined, controller.selectedTemperature.value == 'Hot', () => controller.selectedTemperature.value = 'Hot'),
+                                _buildOptionChip(
+                                    'Hot',
+                                    Icons.wb_sunny_outlined,
+                                    controller.selectedTemperature.value == 'Hot',
+                                        () => controller.selectedTemperature.value = 'Hot'),
                                 const SizedBox(width: 12),
-                                _buildOptionChip('Ice', Icons.ac_unit, controller.selectedTemperature.value == 'Ice', () => controller.selectedTemperature.value = 'Ice'),
+                                _buildOptionChip(
+                                    'Ice',
+                                    Icons.ac_unit,
+                                    controller.selectedTemperature.value == 'Ice',
+                                        () => controller.selectedTemperature.value = 'Ice'),
                               ],
                             )),
                             const SizedBox(height: 24),
-                            const Text('SUGAR LEVEL', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
+                            const Text('SUGAR LEVEL',
+                                style: TextStyle(
+                                    fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
                             const SizedBox(height: 12),
                             Obx(() => Row(
                               children: [
-                                _buildOptionChip('Normal', null, controller.selectedSugarLevel.value == 'Normal', () => controller.selectedSugarLevel.value = 'Normal'),
+                                _buildOptionChip(
+                                    'Normal',
+                                    null,
+                                    controller.selectedSugarLevel.value == 'Normal',
+                                        () => controller.selectedSugarLevel.value = 'Normal'),
                                 const SizedBox(width: 12),
-                                _buildOptionChip('Less', null, controller.selectedSugarLevel.value == 'Less', () => controller.selectedSugarLevel.value = 'Less'),
+                                _buildOptionChip(
+                                    'Less',
+                                    null,
+                                    controller.selectedSugarLevel.value == 'Less',
+                                        () => controller.selectedSugarLevel.value = 'Less'),
                               ],
                             )),
                             const SizedBox(height: 28),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(16)),
+                              decoration: BoxDecoration(
+                                  color: Colors.grey[100], borderRadius: BorderRadius.circular(16)),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Text('Jumlah Pesanan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                  const Text('Jumlah Pesanan',
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                                   Row(
                                     children: [
-                                      IconButton(onPressed: controller.decrementQuantity, icon: const Icon(Icons.remove, size: 18)),
-                                      Obx(() => Text('${controller.quantity.value}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-                                      IconButton(onPressed: controller.incrementQuantity, icon: const Icon(Icons.add, size: 18), color: const Color(0xFF007A4B)),
+                                      IconButton(
+                                          onPressed: controller.decrementQuantity,
+                                          icon: const Icon(Icons.remove, size: 18)),
+                                      Obx(() => Text('${controller.quantity.value}',
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold, fontSize: 16))),
+                                      IconButton(
+                                          onPressed: controller.incrementQuantity,
+                                          icon: const Icon(Icons.add, size: 18),
+                                          color: const Color(0xFF007A4B)),
                                     ],
                                   ),
                                 ],
@@ -552,9 +638,9 @@ class OrderView extends GetView<OrderController> {
                 child: SizedBox(
                   width: double.infinity,
                   child: Obx(() {
-                    final totalPrice = (item['price'] as int) * controller.quantity.value;
+                    final totalPrice = price * controller.quantity.value;
                     return ElevatedButton(
-                      onPressed: () => controller.addToCartFromDetail(item['id']),
+                      onPressed: () => controller.addToCartFromDetail(item),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF007A4B),
                         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
@@ -564,8 +650,12 @@ class OrderView extends GetView<OrderController> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Tambah ke Keranjang', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                          Text(currencyFormatter.format(totalPrice), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                          const Text('Tambah ke Keranjang',
+                              style: TextStyle(
+                                  color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                          Text(currencyFormatter.format(totalPrice),
+                              style: TextStyle(
+                                  color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
                         ],
                       ),
                     );
@@ -588,7 +678,8 @@ class OrderView extends GetView<OrderController> {
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFFE2F0D9) : Colors.grey[100],
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isSelected ? const Color(0xFF007A4B) : Colors.transparent, width: 1.5),
+          border:
+          Border.all(color: isSelected ? const Color(0xFF007A4B) : Colors.transparent, width: 1.5),
         ),
         child: Row(
           children: [
@@ -596,7 +687,11 @@ class OrderView extends GetView<OrderController> {
               Icon(icon, size: 16, color: isSelected ? const Color(0xFF007A4B) : Colors.grey),
               const SizedBox(width: 6),
             ],
-            Text(label, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, color: isSelected ? const Color(0xFF007A4B) : Colors.grey[700], fontSize: 13)),
+            Text(label,
+                style: TextStyle(
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    color: isSelected ? const Color(0xFF007A4B) : Colors.grey[700],
+                    fontSize: 13)),
           ],
         ),
       ),

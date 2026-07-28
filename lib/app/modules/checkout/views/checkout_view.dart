@@ -1,7 +1,10 @@
+// Lokasi: lib/app/modules/checkout/views/checkout_view.dart
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:intl/intl.dart';
 import '../controllers/checkout_controller.dart';
 import '../../../theme/app_colors.dart';
 
@@ -11,6 +14,8 @@ class CheckoutView extends GetView<CheckoutController> {
   @override
   Widget build(BuildContext context) {
     Get.put(CheckoutController());
+    final currencyFormatter =
+    NumberFormat.currency(locale: 'id_ID', symbol: 'Rp', decimalDigits: 0);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -36,14 +41,16 @@ class CheckoutView extends GetView<CheckoutController> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Lokasi Pengiriman (Card Map ala Point Coffee)
+            // ==========================================
+            // 1. LOKASI PENGIRIMAN (CARD MAP)
+            // ==========================================
             const Text(
               'Lokasi Pengiriman',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.darkNeutral),
             ),
             const SizedBox(height: 12),
             Container(
-              height: 240, // Tinggi card map
+              height: 240,
               width: double.infinity,
               decoration: BoxDecoration(
                 color: AppColors.surface,
@@ -60,7 +67,6 @@ class CheckoutView extends GetView<CheckoutController> {
 
                   return Stack(
                     children: [
-                      // Map View
                       if (hasLocation)
                         FlutterMap(
                           mapController: controller.mapController,
@@ -90,7 +96,6 @@ class CheckoutView extends GetView<CheckoutController> {
                           ],
                         )
                       else
-                      // Tampilan placeholder sebelum Ambil Lokasi
                         Container(
                           color: Colors.grey[100],
                           child: Center(
@@ -108,7 +113,6 @@ class CheckoutView extends GetView<CheckoutController> {
                           ),
                         ),
 
-                      // Floating Badge Alamat (Ala Point Coffee)
                       if (hasLocation)
                         Positioned(
                           top: 12,
@@ -149,7 +153,6 @@ class CheckoutView extends GetView<CheckoutController> {
                           ),
                         ),
 
-                      // Tombol Ambil / Update Lokasi
                       Positioned(
                         bottom: 12,
                         left: 12,
@@ -181,7 +184,9 @@ class CheckoutView extends GetView<CheckoutController> {
             ),
             const SizedBox(height: 24),
 
-            // 2. Catatan Alamat
+            // ==========================================
+            // 2. CATATAN ALAMAT
+            // ==========================================
             const Text(
               'Catatan Alamat',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.darkNeutral),
@@ -213,59 +218,97 @@ class CheckoutView extends GetView<CheckoutController> {
             ),
             const SizedBox(height: 24),
 
-            // 3. Ringkasan Pesanan
+            // ==========================================
+            // 3. RINGKASAN PESANAN (DINAMIS DARI SUPABASE CART)
+            // ==========================================
             const Text(
               'Ringkasan Pesanan',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.darkNeutral),
             ),
             const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
-                ],
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.network(
-                      'https://images.unsplash.com/photo-1541167760496-1628856ab772?q=80&w=200',
-                      width: 60,
-                      height: 60,
-                      fit: BoxFit.cover,
-                    ),
+            Obx(() {
+              final items = controller.cartItems;
+              if (items.isEmpty) {
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
+                  child: const Center(
+                    child: Text('Tidak ada produk di keranjang', style: TextStyle(color: Colors.grey)),
+                  ),
+                );
+              }
+
+              return Column(
+                children: items.map((item) {
+                  final String name = item['name']?.toString() ?? 'Produk';
+                  final int qty = (item['quantity'] is num) ? (item['quantity'] as num).toInt() : 1;
+                  final int price = (item['price'] is num) ? (item['price'] as num).toInt() : 0;
+                  final String imageUrl = item['image_url']?.toString() ?? item['image']?.toString() ?? '';
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
+                      ],
+                    ),
+                    child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Kopi Susu Tumbas', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                        const SizedBox(height: 4),
-                        Text('2 x Rp18.000', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            Icon(Icons.sort, size: 14, color: Colors.grey[500]),
-                            const SizedBox(width: 4),
-                            Text('Less sugar, extra ice', style: TextStyle(color: Colors.grey[500], fontSize: 11)),
-                          ],
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: imageUrl.isNotEmpty
+                              ? Image.network(
+                            imageUrl,
+                            width: 60,
+                            height: 60,
+                            fit: BoxFit.cover,
+                            errorBuilder: (ctx, err, stack) => Container(
+                              width: 60,
+                              height: 60,
+                              color: Colors.grey[200],
+                              child: const Icon(Icons.local_cafe, color: Colors.grey),
+                            ),
+                          )
+                              : Container(
+                            width: 60,
+                            height: 60,
+                            color: Colors.grey[200],
+                            child: const Icon(Icons.local_cafe, color: Colors.grey),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                              const SizedBox(height: 4),
+                              Text('$qty x ${currencyFormatter.format(price)}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          currencyFormatter.format(price * qty),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                         ),
                       ],
                     ),
-                  ),
-                  const Text('Rp36.000', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                ],
-              ),
-            ),
+                  );
+                }).toList(),
+              );
+            }),
             const SizedBox(height: 24),
 
-            // 4. Rincian Pembayaran
+            // ==========================================
+            // 4. RINCIAN PEMBAYARAN (DINAMIS)
+            // ==========================================
             const Text(
               'Rincian Pembayaran',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.darkNeutral),
@@ -280,13 +323,16 @@ class CheckoutView extends GetView<CheckoutController> {
                   BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
                 ],
               ),
-              child: Column(
+              child: Obx(() => Column(
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text('Subtotal', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-                      const Text('Rp36.000', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                      Text(
+                        currencyFormatter.format(controller.subtotalPrice),
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -294,7 +340,12 @@ class CheckoutView extends GetView<CheckoutController> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text('Biaya Pengiriman', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-                      const Text('Gratis', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.secondary)),
+                      Text(
+                        controller.deliveryFee.value == 0
+                            ? 'Gratis'
+                            : currencyFormatter.format(controller.deliveryFee.value),
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.secondary),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -302,20 +353,25 @@ class CheckoutView extends GetView<CheckoutController> {
                   const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: const [
-                      Text('Total Pembayaran', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.darkNeutral)),
-                      Text('Rp36.000', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.secondary)),
+                    children: [
+                      const Text('Total Pembayaran', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.darkNeutral)),
+                      Text(
+                        currencyFormatter.format(controller.grandTotalPrice),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.secondary),
+                      ),
                     ],
                   ),
                 ],
-              ),
+              )),
             ),
             const SizedBox(height: 100),
           ],
         ),
       ),
 
-      // 5. Sticky Bottom CTA
+      // ==========================================
+      // 5. STICKY BOTTOM CTA
+      // ==========================================
       bottomSheet: Container(
         padding: const EdgeInsets.all(20),
         color: AppColors.background,
