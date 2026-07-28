@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../controllers/checkout_controller.dart';
 import '../../../theme/app_colors.dart';
 
@@ -8,7 +10,6 @@ class CheckoutView extends GetView<CheckoutController> {
 
   @override
   Widget build(BuildContext context) {
-    // Pastikan controller ter-inject
     Get.put(CheckoutController());
 
     return Scaffold(
@@ -35,58 +36,147 @@ class CheckoutView extends GetView<CheckoutController> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Lokasi Pengiriman (LBS Requirement)
+            // 1. Lokasi Pengiriman (Card Map ala Point Coffee)
             const Text(
               'Lokasi Pengiriman',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.darkNeutral),
             ),
             const SizedBox(height: 12),
             Container(
-              padding: const EdgeInsets.all(24),
+              height: 240, // Tinggi card map
+              width: double.infinity,
               decoration: BoxDecoration(
                 color: AppColors.surface,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
+                  BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
                 ],
               ),
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.location_on_outlined, color: AppColors.darkAccent, size: 28),
-                  ),
-                  const SizedBox(height: 16),
-                  Obx(() => Text(
-                    controller.locationMessage.value,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: controller.latitude.value == 0.0 ? Colors.grey[600] : AppColors.darkNeutral,
-                      fontWeight: controller.latitude.value == 0.0 ? FontWeight.normal : FontWeight.bold,
-                    ),
-                  )),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: Obx(() => ElevatedButton(
-                      onPressed: controller.isLoadingLocation.value ? null : controller.getCurrentLocation,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.secondary,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        elevation: 0,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Obx(() {
+                  final hasLocation = controller.latitude.value != 0.0 && controller.longitude.value != 0.0;
+                  final userPosition = LatLng(controller.latitude.value, controller.longitude.value);
+
+                  return Stack(
+                    children: [
+                      // Map View
+                      if (hasLocation)
+                        FlutterMap(
+                          mapController: controller.mapController,
+                          options: MapOptions(
+                            initialCenter: userPosition,
+                            initialZoom: 16.0,
+                          ),
+                          children: [
+                            TileLayer(
+                              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                              userAgentPackageName: 'com.tumbaskopi.app',
+                            ),
+                            MarkerLayer(
+                              markers: [
+                                Marker(
+                                  point: userPosition,
+                                  width: 40,
+                                  height: 40,
+                                  child: const Icon(
+                                    Icons.location_on,
+                                    color: Colors.redAccent,
+                                    size: 40,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        )
+                      else
+                      // Tampilan placeholder sebelum Ambil Lokasi
+                        Container(
+                          color: Colors.grey[100],
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.map_outlined, size: 48, color: Colors.grey[400]),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Peta belum ditentukan',
+                                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                      // Floating Badge Alamat (Ala Point Coffee)
+                      if (hasLocation)
+                        Positioned(
+                          top: 12,
+                          left: 12,
+                          right: 12,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: [
+                                BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 6),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.my_location, size: 16, color: AppColors.darkAccent),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Lokasimu',
+                                        style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold),
+                                      ),
+                                      Text(
+                                        controller.locationMessage.value,
+                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.darkNeutral),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                      // Tombol Ambil / Update Lokasi
+                      Positioned(
+                        bottom: 12,
+                        left: 12,
+                        right: 12,
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: controller.isLoadingLocation.value ? null : controller.getCurrentLocation,
+                            icon: controller.isLoadingLocation.value
+                                ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                : const Icon(Icons.gps_fixed, size: 16, color: Colors.white),
+                            label: Text(
+                              hasLocation ? 'Update Lokasi Saya' : 'Ambil Lokasi Saya',
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.darkAccent,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              elevation: 2,
+                            ),
+                          ),
+                        ),
                       ),
-                      child: controller.isLoadingLocation.value
-                          ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Text('Ambil Lokasi Saya', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                    )),
-                  ),
-                ],
+                    ],
+                  );
+                }),
               ),
             ),
             const SizedBox(height: 24),
@@ -123,7 +213,7 @@ class CheckoutView extends GetView<CheckoutController> {
             ),
             const SizedBox(height: 24),
 
-            // 3. Ringkasan Pesanan (Hardcode statis dulu sesuai gambar)
+            // 3. Ringkasan Pesanan
             const Text(
               'Ringkasan Pesanan',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.darkNeutral),
@@ -220,7 +310,7 @@ class CheckoutView extends GetView<CheckoutController> {
                 ],
               ),
             ),
-            const SizedBox(height: 100), // Spacing buat bottom button
+            const SizedBox(height: 100),
           ],
         ),
       ),
@@ -242,7 +332,7 @@ class CheckoutView extends GetView<CheckoutController> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: const [
-                Text('Buat Pesanan & Bayar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                Text('Pilih Metode Pembayaran', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
                 SizedBox(width: 8),
                 Icon(Icons.arrow_forward, color: Colors.white, size: 20),
               ],

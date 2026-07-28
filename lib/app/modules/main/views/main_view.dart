@@ -4,16 +4,18 @@ import '../controllers/main_controller.dart';
 import '../../home/views/home_view.dart';
 import '../../../theme/app_colors.dart';
 import '../../order/views/order_view.dart';
+import '../../history/views/history_view.dart';
 
 class MainView extends GetView<MainController> {
   const MainView({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // UPDATE DI SINI: Masukin HistoryView ke dalam list
     final List<Widget> pages = [
       const HomeView(),
       const OrderView(),
-      const Center(child: Text('Halaman Riwayat')),
+      const HistoryView(), // Udah diganti dari Text('Halaman Riwayat')
       const Center(child: Text('Halaman Profil')),
     ];
 

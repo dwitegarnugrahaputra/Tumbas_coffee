@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart'; // Nggak perlu pakai alias lagi
+import 'package:geocoding/geocoding.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../../../routes/app_pages.dart';
 
 class CheckoutController extends GetxController {
@@ -11,8 +13,7 @@ class CheckoutController extends GetxController {
   var locationMessage = 'Tentukan lokasi pengiriman untuk memesan'.obs;
 
   final addressNoteCtrl = TextEditingController();
-
-  // INISIALISASI INSTANCE GEOCODING (WAJIB BUAT V5.0.0 KE ATAS)
+  final MapController mapController = MapController();
   final Geocoding geocoding = Geocoding();
 
   @override
@@ -53,10 +54,19 @@ class CheckoutController extends GetxController {
         ),
       );
 
+      // Cek apakah ini pengambilan lokasi pertama kali (saat peta belum dirender)
+      bool isFirstTime = latitude.value == 0.0 && longitude.value == 0.0;
+
+      // Update State Koordinat
       latitude.value = position.latitude;
       longitude.value = position.longitude;
 
-      // CARA BARU DI V5.0.0: Panggil dari instance "geocoding."
+      // Geser kamera peta HANYA JIKA peta sudah dirender (bukan klik pertama)
+      if (!isFirstTime) {
+        mapController.move(LatLng(position.latitude, position.longitude), 16.0);
+      }
+
+      // Reverse Geocoding untuk dapatkan teks alamat
       List<Placemark> placemarks = await geocoding.placemarkFromCoordinates(
         position.latitude,
         position.longitude,
@@ -64,14 +74,9 @@ class CheckoutController extends GetxController {
 
       if (placemarks.isNotEmpty) {
         Placemark place = placemarks[0];
-
-        // Susun alamatnya
         String fullAddress = '${place.street}, ${place.subLocality}, ${place.locality}, ${place.subAdministrativeArea}, ${place.postalCode}';
 
-        // Update UI tulisan lokasi
         locationMessage.value = fullAddress;
-
-        // OTOMATIS ISI KOLOM CATATAN ALAMAT
         addressNoteCtrl.text = fullAddress;
       } else {
         locationMessage.value = 'Lat: ${position.latitude}, Long: ${position.longitude}';
@@ -94,8 +99,7 @@ class CheckoutController extends GetxController {
       );
       return;
     }
-
-    print("Memproses pesanan di koordinat: ${latitude.value}, ${longitude.value}");
-    Get.toNamed(Routes.INVOICE);
+    // Arahkan ke halaman Metode Pembayaran
+    Get.toNamed(Routes.PAYMENT_METHOD);
   }
 }
