@@ -8,6 +8,9 @@ class HomeView extends GetView<HomeController> {
 
   @override
   Widget build(BuildContext context) {
+    // Pastikan controller dipanggil
+    Get.put(HomeController());
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -82,42 +85,90 @@ class HomeView extends GetView<HomeController> {
               ),
               const SizedBox(height: 20),
 
-              // Hero Banner
-              Container(
-                width: double.infinity,
+              // --- AUTO SLIDER HERO BANNER ---
+              SizedBox(
                 height: 140,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  image: const DecorationImage(
-                    image: NetworkImage('https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?q=80&w=800'),
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    gradient: LinearGradient(
-                      colors: [Colors.black.withOpacity(0.7), Colors.transparent],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      SizedBox(
-                        width: 180,
-                        child: Text(
-                          'Ngopi lebih mudah, langsung dari Tumbas Kopi',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                child: PageView.builder(
+                  controller: controller.pageController,
+                  onPageChanged: controller.onPageChanged,
+                  itemCount: controller.banners.length, // Sesuaikan nama variabel
+                  itemBuilder: (context, index) {
+                    final banner = controller.banners[index];
+
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(16),
+                        image: DecorationImage(
+                          image: NetworkImage(banner['image']!),
+                          fit: BoxFit.cover,
                         ),
                       ),
-                    ],
-                  ),
+                      // Tambahin layer hitam transparan dan teks di sini
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          gradient: LinearGradient(
+                            colors: [Colors.black.withOpacity(0.7), Colors.transparent],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 180,
+                              child: Text(
+                                banner['title']!,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  height: 1.2,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              banner['subtitle']!,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
+              const SizedBox(height: 12),
+
+              // --- DOTS INDICATOR SLIDER ---
+              Obx(() => Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  controller.banners.length, // <--- INI YANG DIUBAH (sebelumnya bannerImages)
+                      (index) => AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    width: controller.currentBannerIndex.value == index ? 24 : 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: controller.currentBannerIndex.value == index
+                          ? AppColors.darkAccent
+                          : Colors.grey.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              )),
+              // --------------------------------
+
               const SizedBox(height: 24),
 
               // Categories
