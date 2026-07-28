@@ -5,6 +5,7 @@ import '../../home/views/home_view.dart';
 import '../../../theme/app_colors.dart';
 import '../../order/views/order_view.dart';
 import '../../history/views/history_view.dart';
+import '../../profile/views/profile_view.dart';
 
 class MainView extends GetView<MainController> {
   const MainView({super.key});
@@ -15,8 +16,8 @@ class MainView extends GetView<MainController> {
     final List<Widget> pages = [
       const HomeView(),
       const OrderView(),
-      const HistoryView(), // Udah diganti dari Text('Halaman Riwayat')
-      const Center(child: Text('Halaman Profil')),
+      const HistoryView(),
+      const ProfileView(), // Langsung panggil ProfileView di sini
     ];
 
     return Scaffold(

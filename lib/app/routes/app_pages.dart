@@ -18,6 +18,8 @@ import '../modules/payment_confirmation/bindings/payment_confirmation_binding.da
 import '../modules/payment_confirmation/views/payment_confirmation_view.dart';
 import '../modules/payment_method/bindings/payment_method_binding.dart';
 import '../modules/payment_method/views/payment_method_view.dart';
+import '../modules/profile/bindings/profile_binding.dart';
+import '../modules/profile/views/profile_view.dart';
 
 part 'app_routes.dart';
 
@@ -75,6 +77,11 @@ class AppPages {
       name: _Paths.HISTORY,
       page: () => const HistoryView(),
       binding: HistoryBinding(),
+    ),
+    GetPage(
+      name: _Paths.PROFILE,
+      page: () => const ProfileView(),
+      binding: ProfileBinding(),
     ),
   ];
 }
