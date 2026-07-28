@@ -1,13 +1,22 @@
+// Lokasi: lib/app/modules/order/controllers/order_controller.dart
+
 import 'package:get/get.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 import '../../../routes/app_pages.dart';
 
 class OrderController extends GetxController {
-  // Filter Kategori
-  var selectedCategory = 'Semua'.obs;
-  final categories = ['Semua', 'Espresso', 'Non-Coffee', 'Pastry'];
+  // 1. Order Type State ('Antar' atau 'Ambil')
+  var orderType = 'Antar'.obs;
+  var userAddress = 'Mencari lokasi...'.obs;
 
-  // Keyword Search
-  var searchQuery = ''.obs;
+  // 2. Filter Kategori
+  var selectedCategory = 'Signature Series'.obs;
+  final categories = ['Signature Series', 'Espresso', 'Non-Coffee', 'Pastry'];
+
+  // 3. LOGIC & STATE PENCARIAN (SEARCH)
+  var isSearchOpen = false.obs; // Toggle visibilitas search bar
+  var searchQuery = ''.obs;      // Keyword pencarian
 
   // Cart State (Simpan jumlah per ID produk)
   var cartItems = <String, int>{}.obs;
@@ -17,43 +26,115 @@ class OrderController extends GetxController {
   var selectedSugarLevel = 'Normal'.obs;
   var quantity = 1.obs;
 
-  // Dummy List Produk (Sesuai DDL PRD)
+  // Dummy List Produk
   final products = [
     {
       'id': '1',
-      'name': 'Kopi Susu Tumbas',
-      'category': 'Espresso',
-      'price': 18000,
-      'description': 'Kopi susu gula aren khas Tumbas yang nikmat.',
+      'name': 'Iced Oat Aren Latte',
+      'category': 'Signature Series',
+      'price': 25000,
+      'originalPrice': 25000,
+      'badge': 'AMBIL SEKARANG',
+      'description': 'Kopi susu gula aren khas Tumbas dengan racikan oat milk nikmat.',
       'image': 'https://images.unsplash.com/photo-1541167760496-1628856ab772?q=80&w=400',
     },
     {
       'id': '2',
-      'name': 'Americano Warmth',
-      'category': 'Espresso',
-      'price': 15000,
-      'description': 'Espresso murni dengan air panas pilihan.',
+      'name': 'Iced Markisa Apelkano',
+      'category': 'Signature Series',
+      'price': 20000,
+      'originalPrice': 25000,
+      'badge': 'AMBIL SEKARANG',
+      'description': 'Paduan espresso segar dengan rasa manis markisa dan apel.',
       'image': 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=400',
     },
     {
       'id': '3',
-      'name': 'Matcha Garden Latte',
-      'category': 'Non-Coffee',
-      'price': 22000,
-      'description': 'Teh hijau jepang premium dengan susu segar.',
+      'name': 'Iced Peach Jerukano',
+      'category': 'Signature Series',
+      'price': 20000,
+      'originalPrice': 25000,
+      'badge': 'AMBIL SEKARANG',
+      'description': 'Espresso dingin dipadu rasa buah peach dan bulir jeruk segar.',
       'image': 'https://images.unsplash.com/photo-1536256263959-770b48d82b0a?q=80&w=400',
     },
     {
       'id': '4',
-      'name': 'Croissant Butter',
-      'category': 'Pastry',
-      'price': 18000,
-      'description': 'Pastry renyah dengan aroma mentega gurih.',
+      'name': 'Iced Lychee Berrikano',
+      'category': 'Signature Series',
+      'price': 20000,
+      'originalPrice': 25000,
+      'badge': 'AMBIL SEKARANG',
+      'description': 'Espresso dingin dengan kesegaran rasa buah leci dan berri.',
       'image': 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?q=80&w=400',
     },
   ];
 
-  // Getter List Produk terfilter
+  @override
+  void onInit() {
+    super.onInit();
+    getCurrentLocation();
+  }
+
+  // Toggle Buka / Tutup Search Bar
+  void toggleSearch() {
+    isSearchOpen.value = !isSearchOpen.value;
+    if (!isSearchOpen.value) {
+      searchQuery.value = ''; // Clear keyword kalau search bar ditutup
+    }
+  }
+
+  // --- FUNGSI GPS SINKRON DENGAN MAPS ---
+  Future<void> getCurrentLocation() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    try {
+      serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        userAddress.value = 'GPS HP belum dinyalakan';
+        return;
+      }
+
+      permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          userAddress.value = 'Izin lokasi ditolak';
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        userAddress.value = 'Izin lokasi diblokir';
+        return;
+      }
+
+      Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
+
+      final Geocoding geocode = Geocoding();
+      List<Placemark> placemarks = await geocode.placemarkFromCoordinates(
+          position.latitude, position.longitude);
+
+      if (placemarks.isNotEmpty) {
+        Placemark place = placemarks[0];
+        String street = place.street ?? '';
+        String locality = place.locality ?? '';
+
+        String address = '$street, $locality'.replaceAll(RegExp(r'^, |,$'), '');
+        userAddress.value = address;
+      }
+    } catch (e) {
+      userAddress.value = 'Gagal memuat lokasi';
+    }
+  }
+
+  void setOrderType(String type) {
+    orderType.value = type;
+  }
+
+  // Getter List Produk terfilter (Berdasarkan Kategori & Kata Kunci Search)
   List<Map<String, dynamic>> get filteredProducts {
     return products.where((product) {
       final matchesCategory = selectedCategory.value == 'Semua' ||
@@ -67,8 +148,6 @@ class OrderController extends GetxController {
   }
 
   // ===== METHOD UNTUK BOTTOM SHEET DETAIL PRODUK =====
-
-  // Method reset opsi saat modal dibuka
   void openProductDetail(Map<String, dynamic> product) {
     selectedTemperature.value = 'Ice';
     selectedSugarLevel.value = 'Normal';
@@ -85,16 +164,13 @@ class OrderController extends GetxController {
     }
   }
 
-  // Method tambah ke keranjang dari detail sheet
   void addToCartFromDetail(String productId) {
     final currentQty = cartItems[productId] ?? 0;
     cartItems[productId] = currentQty + quantity.value;
-    Get.back(); // Tutup BottomSheet setelah ditambah ke keranjang
+    Get.back();
   }
 
   // ===== METHOD KERANJANG UMUM =====
-
-  // Tambah item ke keranjang (dari tombol + Tambah cepat di grid)
   void addToCart(String productId) {
     if (cartItems.containsKey(productId)) {
       cartItems[productId] = cartItems[productId]! + 1;
@@ -103,7 +179,6 @@ class OrderController extends GetxController {
     }
   }
 
-  // Hitung Total Item di Keranjang
   int get totalCartItems {
     int total = 0;
     cartItems.forEach((key, value) {
@@ -112,7 +187,6 @@ class OrderController extends GetxController {
     return total;
   }
 
-  // Hitung Total Harga di Keranjang
   int get totalCartPrice {
     int total = 0;
     cartItems.forEach((productId, qty) {
@@ -122,7 +196,6 @@ class OrderController extends GetxController {
     return total;
   }
 
-  // Navigasi ke Checkout
   void goToCheckout() {
     Get.toNamed(Routes.CHECKOUT);
   }

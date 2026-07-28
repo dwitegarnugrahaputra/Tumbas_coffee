@@ -1,3 +1,5 @@
+// Lokasi: lib/app/modules/home/controllers/home_controller.dart
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -31,19 +33,52 @@ class HomeController extends GetxController {
   ];
 
   // ==========================================
-  // 2. VARIABEL UNTUK DATA BERANDA
+  // 2. VARIABEL DATA BERANDA & FILTERING
   // ==========================================
   var userName = 'Tegar'.obs;
   var userLocation = 'Mencari lokasi...'.obs;
   var selectedCategory = 0.obs;
 
+  // Master Data Produk (Dummy Database)
+  // categoryId -> 0: Espresso, 1: Non-Coffee, 2: Pastry, 3: Beans
+  final List<Map<String, dynamic>> allProducts = [
+    // Kategori 0: Espresso
+    {'name': 'Kopi Susu Tumbas', 'price': 'Rp18.000', 'image': 'https://images.unsplash.com/photo-1541167760496-1628856ab772?q=80&w=300', 'categoryId': 0},
+    {'name': 'Americano Warmth', 'price': 'Rp15.000', 'image': 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=300', 'categoryId': 0},
+    {'name': 'Caramel Macchiato', 'price': 'Rp22.000', 'image': 'https://images.unsplash.com/photo-1485808191679-5f86510681a2?q=80&w=300', 'categoryId': 0},
+
+    // Kategori 1: Non-Coffee
+    {'name': 'Matcha Creamy Oat', 'price': 'Rp25.000', 'image': 'https://images.unsplash.com/photo-1536256263959-770b48d82b0a?q=80&w=300', 'categoryId': 1},
+    // LINK TARO LATTE DIPERBARUI
+    {'name': 'Taro Latte', 'price': 'Rp20.000', 'image': 'https://images.unsplash.com/photo-1517701604599-bb29b565090c?q=80&w=300', 'categoryId': 1},
+
+    // Kategori 2: Pastry
+    // LINK BUTTER CROISSANT DIPERBARUI
+    {'name': 'Butter Croissant', 'price': 'Rp15.000', 'image': 'https://images.unsplash.com/photo-1549996647-190b679b33d7?q=80&w=300', 'categoryId': 2},
+    {'name': 'Pain au Chocolat', 'price': 'Rp18.000', 'image': 'https://images.unsplash.com/photo-1608198093002-ad4e005484ec?q=80&w=300', 'categoryId': 2},
+
+    // Kategori 3: Beans
+    {'name': 'Arabica Blend 200g', 'price': 'Rp75.000', 'image': 'https://images.unsplash.com/photo-1559525839-b184a4d698c7?q=80&w=300', 'categoryId': 3},
+    {'name': 'Robusta Beans 200g', 'price': 'Rp50.000', 'image': 'https://images.unsplash.com/photo-1611162458324-aae1eb4129a4?q=80&w=300', 'categoryId': 3},
+  ];
+
+  // Logic filter produk berdasarkan kategori yang dipilih
+  List<Map<String, dynamic>> get filteredProducts {
+    return allProducts.where((product) => product['categoryId'] == selectedCategory.value).toList();
+  }
+
   @override
   void onInit() {
     super.onInit();
     startAutoSlide();
-
-    // PEMANGGILAN FUNGSI GPS
     getCurrentLocation();
+  }
+
+  // ==========================================
+  // 3. FUNGSI NAVIGASI
+  // ==========================================
+  void goToOrderPage(Map<String, dynamic> product) {
+    Get.toNamed('/order', arguments: product);
   }
 
   // --- Fungsi Slider ---
@@ -72,20 +107,18 @@ class HomeController extends GetxController {
     selectedCategory.value = index;
   }
 
-  // --- FUNGSI UTAMA GPS (VERSI GEOCODING TERBARU v5.0+) ---
+  // --- FUNGSI GPS ---
   Future<void> getCurrentLocation() async {
     bool serviceEnabled;
     LocationPermission permission;
 
     try {
-      // 1. Cek apakah fitur GPS di HP nyala
       serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         userLocation.value = 'GPS HP belum dinyalakan';
         return;
       }
 
-      // 2. Cek apakah app udah dikasih izin lokasi
       permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -100,15 +133,10 @@ class HomeController extends GetxController {
         return;
       }
 
-      // 3. Ambil titik koordinat (Latitude & Longitude)
       Position position = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high);
 
-      // 4. Ubah koordinat jadi nama jalan pakai Geocoding VERSI 5.0.0 KE ATAS
-      // Wajib bikin instancenya (objek) dulu seperti ini:
       final Geocoding geocode = Geocoding();
-
-      // Baru dipanggil melalui objeknya
       List<Placemark> placemarks = await geocode.placemarkFromCoordinates(
           position.latitude, position.longitude);
 
