@@ -1,5 +1,8 @@
+// Lokasi: lib/app/modules/history/views/history_view.dart
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart';
 import '../controllers/history_controller.dart';
 import '../../../theme/app_colors.dart';
 
@@ -9,6 +12,7 @@ class HistoryView extends GetView<HistoryController> {
   @override
   Widget build(BuildContext context) {
     Get.put(HistoryController());
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -77,58 +81,105 @@ class HistoryView extends GetView<HistoryController> {
             ),
           ),
 
-          // Tab Bar View (Isi konten per tab)
+          // Tab Bar View (Isi konten per tab Dinamis)
           Expanded(
-            child: TabBarView(
-              controller: controller.tabController,
-              children: [
-                // 1. Tab Dalam Proses
-                const Center(
-                  child: Text('Belum ada pesanan dalam proses', style: TextStyle(color: Colors.grey)),
-                ),
+            child: Obx(() {
+              if (controller.isLoading.value) {
+                return const Center(child: CircularProgressIndicator(color: AppColors.darkAccent));
+              }
 
-                // 2. Tab Selesai
-                ListView(
-                  padding: const EdgeInsets.all(24),
-                  children: [
-                    _buildOrderCard(
-                      date: '12 Okt 2023, 08:45',
-                      inv: 'INV/20231012/TK/001',
-                      title: 'Aren Latte Extra Shot',
-                      desc: '1 Item • Less Sugar',
-                      price: 'Rp 28.000',
-                      imageUrl: 'https://images.unsplash.com/photo-1541167760496-1628856ab772?q=80&w=150',
-                    ),
-                    const SizedBox(height: 16),
-                    _buildOrderCard(
-                      date: '10 Okt 2023, 14:20',
-                      inv: 'INV/20231010/TK/042',
-                      title: 'Matcha Zen & Croissant',
-                      desc: '2 Items • Regular Ice',
-                      price: 'Rp 52.000',
-                      imageUrl: 'https://images.unsplash.com/photo-1515823662972-da6a2e4d3002?q=80&w=150',
-                    ),
-                    const SizedBox(height: 16),
-                    _buildBundleCard(), // Custom layout buat bundle yang banyak icon
-                  ],
-                ),
-              ],
-            ),
+              return TabBarView(
+                controller: controller.tabController,
+                children: [
+                  // 1. Tab Dalam Proses
+                  controller.onProcessOrders.isEmpty
+                      ? const Center(child: Text('Belum ada pesanan dalam proses', style: TextStyle(color: Colors.grey)))
+                      : ListView.separated(
+                    padding: const EdgeInsets.all(24),
+                    itemCount: controller.onProcessOrders.length,
+                    separatorBuilder: (context, index) => const SizedBox(height: 16),
+                    itemBuilder: (context, index) {
+                      return _buildDynamicOrderCard(controller.onProcessOrders[index]);
+                    },
+                  ),
+
+                  // 2. Tab Selesai
+                  controller.completedOrders.isEmpty
+                      ? const Center(child: Text('Belum ada riwayat pesanan', style: TextStyle(color: Colors.grey)))
+                      : ListView.separated(
+                    padding: const EdgeInsets.all(24),
+                    itemCount: controller.completedOrders.length,
+                    separatorBuilder: (context, index) => const SizedBox(height: 16),
+                    itemBuilder: (context, index) {
+                      return _buildDynamicOrderCard(controller.completedOrders[index]);
+                    },
+                  ),
+                ],
+              );
+            }),
           ),
         ],
       ),
     );
   }
 
-  // Widget Helper buat Card Pesanan Standar
-  Widget _buildOrderCard({
-    required String date,
-    required String inv,
-    required String title,
-    required String desc,
-    required String price,
-    required String imageUrl,
-  }) {
+  // Widget Helper Buat Render Card Dinamis
+  Widget _buildDynamicOrderCard(Map<String, dynamic> order) {
+    final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp', decimalDigits: 0);
+
+    // Format Tanggal
+    String formattedDate = '-';
+    if (order['created_at'] != null) {
+      formattedDate = DateFormat('dd MMM yyyy, HH:mm').format(DateTime.parse(order['created_at']).toLocal());
+    }
+
+    // Ambil detail items
+    final List<dynamic> items = order['order_items'] ?? [];
+    String title = 'Pesanan Tumbas';
+    int totalQty = 0;
+
+    if (items.isNotEmpty) {
+      title = items[0]['product_name'] ?? 'Produk Kopi';
+      if (items.length > 1) {
+        title += ' & ${items.length - 1} item lainnya';
+      }
+      for (var item in items) {
+        totalQty += (item['quantity'] as int? ?? 1);
+      }
+    }
+
+    final totalPrice = currencyFormatter.format(order['total_price'] ?? 0);
+    final status = order['status'] ?? 'UNKNOWN';
+
+    // Setel warna status (AMAT DARI NULL CHECK OPERATOR EXCEPTION)
+    Color statusBgColor = Colors.grey.shade200;
+    Color statusTextColor = Colors.grey.shade700;
+    IconData statusIcon = Icons.info_outline;
+    String statusText = status;
+
+    if (status == 'WAITING_VERIFICATION') {
+      statusBgColor = Colors.orange.withOpacity(0.2);
+      statusTextColor = Colors.orange.shade800;
+      statusIcon = Icons.hourglass_empty;
+      statusText = 'Verifikasi';
+    } else if (status == 'CANCELED' || status == 'EXPIRED') {
+      statusBgColor = Colors.red.withOpacity(0.2);
+      statusTextColor = Colors.red.shade800;
+      statusIcon = Icons.cancel_outlined;
+    } else if (status == 'COMPLETED') {
+      statusBgColor = Colors.green.withOpacity(0.2);
+      statusTextColor = AppColors.darkAccent;
+      statusIcon = Icons.check_circle_outline;
+      statusText = 'Selesai';
+    } else {
+      statusBgColor = Colors.green.withOpacity(0.2);
+      statusTextColor = AppColors.darkAccent;
+      statusIcon = Icons.check_circle_outline;
+    }
+
+    // Placeholder image
+    const String placeholderImg = 'https://images.unsplash.com/photo-1541167760496-1628856ab772?q=80&w=150';
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -152,20 +203,23 @@ class HistoryView extends GetView<HistoryController> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(date, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                    Text(formattedDate, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
                     const SizedBox(height: 2),
-                    Text(inv, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.darkNeutral)),
+                    Text(
+                        'TRX-${order['id'].toString().substring(0, 8).toUpperCase()}',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.darkNeutral)
+                    ),
                   ],
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: Colors.green.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(color: statusBgColor, borderRadius: BorderRadius.circular(12)),
                 child: Row(
-                  children: const [
-                    Icon(Icons.check_circle_outline, color: AppColors.darkAccent, size: 14),
-                    SizedBox(width: 4),
-                    Text('Selesai', style: TextStyle(color: AppColors.darkAccent, fontSize: 11, fontWeight: FontWeight.bold)),
+                  children: [
+                    Icon(statusIcon, color: statusTextColor, size: 14),
+                    const SizedBox(width: 4),
+                    Text(statusText, style: TextStyle(color: statusTextColor, fontSize: 11, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
@@ -179,16 +233,16 @@ class HistoryView extends GetView<HistoryController> {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image.network(imageUrl, width: 50, height: 50, fit: BoxFit.cover),
+                child: Image.network(placeholderImg, width: 50, height: 50, fit: BoxFit.cover),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), maxLines: 2, overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 4),
-                    Text(desc, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                    Text('$totalQty Items', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
                   ],
                 ),
               ),
@@ -196,7 +250,7 @@ class HistoryView extends GetView<HistoryController> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text('Total', style: TextStyle(color: Colors.grey[500], fontSize: 11)),
-                  Text(price, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.darkAccent)),
+                  Text(totalPrice, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.darkAccent)),
                 ],
               ),
             ],
@@ -204,121 +258,40 @@ class HistoryView extends GetView<HistoryController> {
           const SizedBox(height: 16),
 
           // Action Button
-          Align(
-            alignment: Alignment.centerRight,
-            child: OutlinedButton(
-              onPressed: () => controller.viewInvoice(inv),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.darkAccent,
-                side: const BorderSide(color: AppColors.darkAccent),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              // Tombol Simulasi (Hanya muncul kalau statusnya BUKAN Selesai/Batal)
+              if (status != 'COMPLETED' && status != 'CANCELED' && status != 'EXPIRED')
+                ElevatedButton(
+                  onPressed: () => controller.completeOrder(order['id']),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF007A4B),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    elevation: 0,
+                  ),
+                  child: const Text('Terima Pesanan', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                ),
+
+              if (status != 'COMPLETED' && status != 'CANCELED' && status != 'EXPIRED')
+                const SizedBox(width: 8),
+
+              // Tombol Detail / Invoice bawaan
+              OutlinedButton(
+                onPressed: () => controller.viewInvoice(order['id']),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.darkAccent,
+                  side: const BorderSide(color: AppColors.darkAccent),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                ),
+                child: const Text('Detail / Invoice', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
               ),
-              child: const Text('Lihat Bukti Transaksi', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            ),
+            ],
           ),
         ],
       ),
-    );
-  }
-
-  // Widget Helper Khusus buat layout Bundle (item ke-3 di gambar lu)
-  Widget _buildBundleCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.withOpacity(0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: Colors.green.withOpacity(0.2), shape: BoxShape.circle),
-                child: const Icon(Icons.receipt_long, color: AppColors.darkAccent, size: 20),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('08 Okt 2023, 16:10', style: TextStyle(fontSize: 11, color: Colors.grey[600])),
-                    const SizedBox(height: 2),
-                    const Text('INV/20231008/TK/089', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.darkNeutral)),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: Colors.green.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
-                child: Row(
-                  children: const [
-                    Icon(Icons.check_circle_outline, color: AppColors.darkAccent, size: 14),
-                    SizedBox(width: 4),
-                    Text('Selesai', style: TextStyle(color: AppColors.darkAccent, fontSize: 11, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider()),
-
-          const Text('Bundle Family: 4 Espresso', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-          const SizedBox(height: 4),
-          Text('4 Items • Package Deal', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-          const SizedBox(height: 12),
-
-          // Tumpukan Icon Bundle
-          Row(
-            children: [
-              _buildMiniImage('https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=100'),
-              const SizedBox(width: 4),
-              _buildMiniImage('https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=100'),
-              const SizedBox(width: 4),
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(color: Colors.green.withOpacity(0.3), shape: BoxShape.circle),
-                child: const Center(child: Text('+2', style: TextStyle(color: AppColors.darkAccent, fontSize: 11, fontWeight: FontWeight.bold))),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Total', style: TextStyle(color: Colors.grey[500], fontSize: 13)),
-              const Text('Rp 110.000', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.darkAccent)),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Align(
-            alignment: Alignment.centerRight,
-            child: OutlinedButton(
-              onPressed: () {},
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.darkAccent,
-                side: const BorderSide(color: AppColors.darkAccent),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              ),
-              child: const Text('Lihat Bukti Transaksi', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMiniImage(String url) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: Image.network(url, width: 32, height: 32, fit: BoxFit.cover),
     );
   }
 }

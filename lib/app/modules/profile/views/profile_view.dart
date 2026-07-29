@@ -504,10 +504,13 @@ class ProfileView extends GetView<ProfileController> {
             onPressed: () async {
               Get.back();
 
-              // 1. Terminate Supabase Auth Session
+              // 1. Catat log sebelum sesi beneran dihapus
+              await controller.insertLogActivity('LOGOUT');
+
+              // 2. Terminate Supabase Auth Session
               await supabase.auth.signOut();
 
-              // 2. Clear & Redirection to Auth/Login Page
+              // 3. Clear & Redirection to Auth/Login Page
               Get.offAllNamed(Routes.LOGIN);
 
               Get.snackbar(

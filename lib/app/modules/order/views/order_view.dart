@@ -121,7 +121,10 @@ class OrderView extends GetView<OrderController> {
                               );
                             }).toList(),
                             onChanged: (newValue) {
-                              if (newValue != null) controller.selectedCategory.value = newValue;
+                              if (newValue != null) {
+                                // Panggil method controller agar filter diproses
+                                controller.filterByCategory(newValue);
+                              }
                             },
                           ),
                         )),
@@ -175,7 +178,8 @@ class OrderView extends GetView<OrderController> {
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                     child: TextField(
                       autofocus: true,
-                      onChanged: (val) => controller.searchQuery.value = val,
+                      // Sambungkan ke controller.searchProduct
+                      onChanged: (val) => controller.searchProduct(val),
                       decoration: InputDecoration(
                         hintText: 'Cari menu Tumbas Kopi...',
                         hintStyle: const TextStyle(color: Colors.grey, fontSize: 13),
@@ -183,7 +187,7 @@ class OrderView extends GetView<OrderController> {
                         suffixIcon: controller.searchQuery.value.isNotEmpty
                             ? IconButton(
                           icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
-                          onPressed: () => controller.searchQuery.value = '',
+                          onPressed: () => controller.searchProduct(''),
                         )
                             : null,
                         filled: true,

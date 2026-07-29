@@ -19,7 +19,7 @@ class ProfileController extends GetxController {
   var selectedLanguage = 'Bahasa Indonesia'.obs;
   var isLoading = false.obs;
 
-  // Progress Kalkulasi Dinamis (6 Total Item Profil)
+  // Progress Kalkulasi Dinamis
   var completionProgress = 0.obs;
   final int totalSteps = 6;
 
@@ -43,22 +43,37 @@ class ProfileController extends GetxController {
     fetchUserLogs();
   }
 
-  // FUNGSI UNTUK MENGHITUNG PROGRES KELENGKAPAN PROFIL (DINAMIS)
   void updateProfileProgress() {
     int count = 0;
-
     if (name.value.isNotEmpty && name.value != 'Pelanggan Tumbas') count++;
     if (phone.value.isNotEmpty && phone.value != '-') count++;
     if (email.value.isNotEmpty && email.value != '-') count++;
     if (gender.value.isNotEmpty) count++;
-    // birthDate.value tidak pernah null karena bertipe DateTime, jadi langsung count++
-    count++;
+    count++; // birthDate
     if (profileImagePath.value.isNotEmpty) count++;
 
     completionProgress.value = count;
   }
 
-  // 1. TARIK DATA PROFIL DARI TABEL PROFILES
+  // --- FUNGSI BARU: INSERT LOG AKTIVITAS ---
+  Future<void> insertLogActivity(String actionName) async {
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      await supabase.from('user_logs').insert({
+        'user_id': userId,
+        'action': actionName,
+        // device_info & location_info pakai default dari DB dulu untuk sekarang
+      });
+
+      // Refresh list log setelah insert
+      fetchUserLogs();
+    } catch (e) {
+      debugPrint('Gagal mencatat log: $e');
+    }
+  }
+
   Future<void> fetchUserProfile() async {
     try {
       isLoading.value = true;
@@ -78,7 +93,6 @@ class ProfileController extends GetxController {
         email.value = data['email'] ?? (supabase.auth.currentUser?.email ?? '-');
         gender.value = data['gender'] ?? 'Laki-laki';
 
-        // Ambil tanggal lahir jika string dari Supabase ada
         if (data['birth_date'] != null && data['birth_date'].toString().isNotEmpty) {
           birthDate.value = DateTime.parse(data['birth_date']);
         }
@@ -87,12 +101,10 @@ class ProfileController extends GetxController {
           profileImagePath.value = data['avatar_url'];
         }
 
-        // Sync ke Text Controller
         nameController.text = name.value;
         phoneController.text = phone.value;
         emailController.text = email.value;
 
-        // Hitung progres kelengkapan
         updateProfileProgress();
       }
     } catch (e) {
@@ -102,7 +114,6 @@ class ProfileController extends GetxController {
     }
   }
 
-  // 2. TARIK RIWAYAT LOG AKTIVITAS
   Future<void> fetchUserLogs() async {
     try {
       final userId = supabase.auth.currentUser?.id;
@@ -115,22 +126,28 @@ class ProfileController extends GetxController {
           .order('created_at', ascending: false)
           .limit(5);
 
-      logActivities.value = response.map((log) {
-        final date = DateTime.parse(log['created_at']).toLocal();
+      // Tambahkan <Map<String, String>> pada map() dan pastikan nilainya di-.toString()
+      logActivities.value = response.map<Map<String, String>>((log) {
+        final date = DateTime.parse(log['created_at'].toString()).toLocal();
         final formattedTime = DateFormat('dd MMM yyyy, HH:mm').format(date);
+
+        String statusLabel = log['action'].toString();
+        if (statusLabel == 'LOGIN_SUCCESS') statusLabel = 'Aktif / Login';
+        if (statusLabel == 'UPDATE_PROFILE') statusLabel = 'Ubah Profil';
+        if (statusLabel == 'LOGOUT') statusLabel = 'Keluar Akun';
+
         return {
-          'device': 'Peranti Mobile',
-          'location': 'Purbalingga, Jawa Tengah',
+          'device': log['device_info']?.toString() ?? 'Peranti Mobile',
+          'location': log['location_info']?.toString() ?? 'Tidak diketahui',
           'time': '$formattedTime WIB',
-          'status': log['action'] == 'LOGIN_SUCCESS' ? 'Aktif / Login' : log['action'].toString(),
+          'status': statusLabel,
         };
       }).toList();
     } catch (e) {
-      // Fallback
+      debugPrint('Gagal fetch logs: $e');
     }
   }
 
-  // 3. SIMPAN PERUBAHAN PROFIL KE DATABASE SUPABASE
   Future<void> saveProfile() async {
     try {
       isLoading.value = true;
@@ -143,7 +160,6 @@ class ProfileController extends GetxController {
 
       final birthDateFormatted = DateFormat('yyyy-MM-dd').format(birthDate.value);
 
-      // Gunakan update() ke Supabase DB
       await supabase.from('profiles').update({
         'full_name': nameController.text,
         'phone_number': phoneController.text,
@@ -153,13 +169,14 @@ class ProfileController extends GetxController {
         'avatar_url': profileImagePath.value,
       }).eq('id', userId);
 
-      // Update State Lokal
       name.value = nameController.text;
       phone.value = phoneController.text;
       email.value = emailController.text;
 
-      // Recalculate Progress
       updateProfileProgress();
+
+      // CATAT LOG AKTIVITAS SETELAH SUKSES UPDATE
+      await insertLogActivity('UPDATE_PROFILE');
 
       Get.back();
       Get.snackbar(
@@ -175,7 +192,6 @@ class ProfileController extends GetxController {
     }
   }
 
-  // 4. PILIH FOTO PROFIL DARI GALERI HP
   Future<void> pickProfileImage() async {
     try {
       final XFile? image = await _picker.pickImage(

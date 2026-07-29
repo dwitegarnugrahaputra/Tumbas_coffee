@@ -7,7 +7,7 @@ import '../../../routes/app_pages.dart';
 import 'dart:typed_data'; // Tambahkan ini untuk Uint8List
 import 'dart:ui' as ui;
 import 'package:flutter/rendering.dart';
-import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:gal/gal.dart';
 
 class InvoiceController extends GetxController {
   final GlobalKey invoiceKey = GlobalKey();
@@ -97,14 +97,10 @@ class InvoiceController extends GetxController {
       if (byteData != null) {
         final Uint8List pngBytes = byteData.buffer.asUint8List();
 
-        // 3. Simpan Byte Gambar ke Galeri HP
-        final result = await ImageGallerySaver.saveImage(
-          pngBytes,
-          quality: 100,
-          name: "Invoice_${orderData['id'] ?? DateTime.now().millisecondsSinceEpoch}",
-        );
+        try {
+          // Simpan Byte Gambar ke Galeri HP pakai package 'gal'
+          await Gal.putImageBytes(pngBytes);
 
-        if (result['isSuccess'] == true || result['filePath'] != null) {
           Get.snackbar(
             'Berhasil!',
             'Bukti transaksi berhasil disimpan ke galeri HP.',
@@ -112,10 +108,10 @@ class InvoiceController extends GetxController {
             colorText: Colors.white,
             snackPosition: SnackPosition.TOP,
           );
-        } else {
+        } on GalException catch (e) {
           Get.snackbar(
-            'Gagal',
-            'Tidak dapat menyimpan gambar ke galeri.',
+            'Gagal Menyimpan',
+            'Error dari Galeri: ${e.type.message}',
             backgroundColor: Colors.red[700],
             colorText: Colors.white,
           );

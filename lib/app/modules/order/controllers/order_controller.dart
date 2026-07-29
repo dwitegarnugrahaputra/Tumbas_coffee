@@ -15,15 +15,15 @@ class OrderController extends GetxController {
   var selectedCategory = 'Semua'.obs;
   var searchQuery = ''.obs;
   var isSearchOpen = false.obs;
-  var userAddress = 'Jl. Narasoma, Purbalingga Wetan, Purbalingga'.obs; // <-- Penambahan Variabel
+  var userAddress = 'Jl. Narasoma, Purbalingga Wetan, Purbalingga'.obs;
 
-  // List Kategori untuk Tab UI
+  // List Kategori untuk Tab UI (Disamakan dengan Kategori DB)
   final List<String> categories = [
     'Semua',
-    'Espresso',
+    'Coffee',
     'Non-Coffee',
     'Pastry',
-    'Beans'
+    'Snack'
   ];
 
   // Order Type (Dine In / Take Away)
@@ -44,7 +44,7 @@ class OrderController extends GetxController {
     fetchProductsFromSupabase();
   }
 
-  // 1. FETCH DATA PRODUK DARI SUPABASE (FR-BE-03)
+  // 1. FETCH DATA PRODUK DARI SUPABASE
   Future<void> fetchProductsFromSupabase() async {
     try {
       isLoading.value = true;
@@ -52,7 +52,6 @@ class OrderController extends GetxController {
       final List<dynamic> response = await supabase
           .from('products')
           .select()
-          .eq('is_available', true)
           .order('name', ascending: true);
 
       allProducts.value = List<Map<String, dynamic>>.from(response);
@@ -90,26 +89,33 @@ class OrderController extends GetxController {
     applyFilterAndSearch();
   }
 
+  // LOGIKA UTAMA FILTER & SEARCH
   void applyFilterAndSearch() {
     var result = allProducts.toList();
 
-    // Filter Kategori
+    // 1. Filter Kategori
     if (selectedCategory.value != 'Semua') {
-      result = result
-          .where((p) =>
-      p['category'].toString().toLowerCase() ==
-          selectedCategory.value.toLowerCase())
-          .toList();
+      result = result.where((p) {
+        final categoryInDb = (p['category'] ?? '').toString().toLowerCase();
+        final targetCat = selectedCategory.value.toLowerCase();
+
+        // Pengecekan fleksibel jika nama kategori 'Espresso' atau 'Coffee'
+        if (targetCat == 'espresso' || targetCat == 'coffee') {
+          return categoryInDb.contains('coffee') || categoryInDb.contains('espresso');
+        }
+
+        return categoryInDb == targetCat;
+      }).toList();
     }
 
-    // Filter Query Search
-    if (searchQuery.value.isNotEmpty) {
-      result = result
-          .where((p) => p['name']
-          .toString()
-          .toLowerCase()
-          .contains(searchQuery.value.toLowerCase()))
-          .toList();
+    // 2. Filter Query Search (Cari berdasarkan nama atau deskripsi)
+    if (searchQuery.value.trim().isNotEmpty) {
+      final q = searchQuery.value.trim().toLowerCase();
+      result = result.where((p) {
+        final name = (p['name'] ?? '').toString().toLowerCase();
+        final desc = (p['description'] ?? '').toString().toLowerCase();
+        return name.contains(q) || desc.contains(q);
+      }).toList();
     }
 
     filteredProducts.value = result;
@@ -133,7 +139,6 @@ class OrderController extends GetxController {
     }
   }
 
-  // <-- UPDATE: Tambah parameter opsional agar matching dengan View
   void addToCartFromDetail([Map<String, dynamic>? product]) {
     final targetProduct = (product != null && product.isNotEmpty)
         ? product
@@ -189,7 +194,6 @@ class OrderController extends GetxController {
     return cart.values.fold(0, (sum, item) => sum + item);
   }
 
-  // Alias Getter Total Price untuk UI
   int get totalCartPrice {
     int total = 0;
     cart.forEach((productId, qty) {
@@ -205,7 +209,6 @@ class OrderController extends GetxController {
 
   int get totalPrice => totalCartPrice;
 
-  // Navigasi ke Checkout
   void goToCheckout() {
     if (cart.isEmpty) {
       Get.snackbar('Keranjang Kosong', 'Pilih minimal 1 menu sebelum checkout!');
@@ -214,7 +217,6 @@ class OrderController extends GetxController {
     Get.toNamed(Routes.CHECKOUT);
   }
 
-  // Ringkasan Item Cart
   List<Map<String, dynamic>> get cartItemsSummary {
     List<Map<String, dynamic>> summary = [];
     cart.forEach((productId, qty) {
